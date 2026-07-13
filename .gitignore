@@ -1,0 +1,14 @@
+# Internal working notes — keep these out of the public portfolio
+PROJECT_LOG.md
+**/PROJECT_LOG.md
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.vscode/
+.idea/
+
+# Dependencies (if you add JS tooling later)
+node_modules/

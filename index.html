@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Walter Matagagwe — Computer Science</title>
+<meta name="description" content="Walter Matagagwe — Computer Science student in Nairobi building software toward aerospace systems." />
+
+<!-- Fonts load online (GitHub Pages / with internet). A system-font fallback keeps it readable offline. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   DESIGN TOKENS  (edit colours here if you ever want to)
+   ============================================================ */
+:root{
+  --bg:#F3F5F7; --surface:#FFFFFF; --surface-2:#E9EDF1;
+  --text:#171B22; --text-2:#56606E; --border:#D8DEE6;
+  --accent:#12707E; --accent-2:#0C4E58; --signal:#B96A1E;
+  --shadow:0 1px 2px rgba(20,27,34,.06),0 8px 24px rgba(20,27,34,.06);
+  --maxw:1080px;
+  --font-display:'Sora',ui-sans-serif,system-ui,sans-serif;
+  --font-body:'IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0F131A; --surface:#161B24; --surface-2:#1E2531;
+    --text:#EAEEF3; --text-2:#9AA6B4; --border:#262E3B;
+    --accent:#37B0C0; --accent-2:#7FD4DF; --signal:#E0A458;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#F3F5F7; --surface:#FFFFFF; --surface-2:#E9EDF1;
+  --text:#171B22; --text-2:#56606E; --border:#D8DEE6;
+  --accent:#12707E; --accent-2:#0C4E58; --signal:#B96A1E;
+  --shadow:0 1px 2px rgba(20,27,34,.06),0 8px 24px rgba(20,27,34,.06);
+}
+:root[data-theme="dark"]{
+  --bg:#0F131A; --surface:#161B24; --surface-2:#1E2531;
+  --text:#EAEEF3; --text-2:#9AA6B4; --border:#262E3B;
+  --accent:#37B0C0; --accent-2:#7FD4DF; --signal:#E0A458;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font-body);font-size:16px;line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+a{color:var(--accent);text-decoration:none}
+a:hover{color:var(--accent-2)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+
+/* labels / eyebrows */
+.mono{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-2)}
+
+/* ---------- NAV ---------- */
+nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 85%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}
+.brand{font-family:var(--font-display);font-weight:700;font-size:1rem;letter-spacing:-.01em;color:var(--text)}
+.brand span{color:var(--accent)}
+.nav-links{display:flex;gap:22px}
+.nav-links a{font-size:.9rem;color:var(--text-2);font-weight:500}
+.nav-links a:hover{color:var(--text)}
+.theme-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);
+  width:38px;height:38px;border-radius:9px;cursor:pointer;display:grid;place-items:center;font-size:1rem}
+.theme-btn:hover{border-color:var(--accent)}
+@media(max-width:720px){.nav-links{display:none}}
+
+/* ---------- HERO ---------- */
+header{padding:72px 0 56px;border-bottom:1px solid var(--border)}
+.hero-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:40px;align-items:center}
+@media(max-width:820px){.hero-grid{grid-template-columns:1fr;gap:28px}}
+.hero h1{font-family:var(--font-display);font-weight:700;
+  font-size:clamp(2.5rem,7vw,4.6rem);line-height:1.02;letter-spacing:-.03em;
+  text-wrap:balance;margin:14px 0 18px}
+.hero .lead{font-size:1.18rem;color:var(--text-2);max-width:34ch}
+.hero .lead strong{color:var(--text);font-weight:600}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;
+  font-weight:600;font-size:.92rem;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.btn:hover{border-color:var(--accent);color:var(--text)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-2);border-color:var(--accent-2);color:#fff}
+
+/* HUD instrument panel */
+.hud{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:22px;box-shadow:var(--shadow);font-family:var(--font-mono);font-size:.82rem}
+.hud .row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border);color:var(--text-2)}
+.hud .row:last-child{border-bottom:0}
+.hud .v{color:var(--text);font-weight:500}
+.hud .v.sig{color:var(--signal)}
+.hud .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--signal);margin-right:7px;
+  box-shadow:0 0 0 0 var(--signal);animation:pulse 2.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--signal) 60%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+/* ---------- SECTIONS ---------- */
+section{padding:56px 0;border-bottom:1px solid var(--border)}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:30px}
+.sec-head h2{font-family:var(--font-display);font-weight:600;font-size:clamp(1.4rem,3vw,1.9rem);letter-spacing:-.02em}
+.sec-head .num{font-family:var(--font-mono);color:var(--accent);font-size:.8rem;font-weight:500}
+.prose{max-width:64ch;color:var(--text-2)}
+.prose strong{color:var(--text)}
+.prose p+p{margin-top:14px}
+
+/* skills */
+.skill-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+.skill-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.skill-card h3{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-2);margin-bottom:14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:.83rem;color:var(--text)}
+
+/* projects */
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.proj{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;
+  display:flex;flex-direction:column;gap:12px;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.proj:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:var(--shadow)}
+.proj .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.proj h3{font-family:var(--font-display);font-weight:600;font-size:1.15rem;letter-spacing:-.01em}
+.badge{font-family:var(--font-mono);font-size:.64rem;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 9px;border-radius:6px;white-space:nowrap}
+.badge.live{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-2);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+.badge.building{background:color-mix(in srgb,var(--signal) 16%,transparent);color:var(--signal);border:1px solid color-mix(in srgb,var(--signal) 35%,transparent)}
+.badge.planned{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border)}
+.proj p{color:var(--text-2);font-size:.94rem;flex:1}
+.proj .tags{display:flex;flex-wrap:wrap;gap:6px}
+.proj .tag{font-family:var(--font-mono);font-size:.7rem;color:var(--text-2)}
+.proj .links{display:flex;gap:16px;font-size:.86rem;font-weight:600;margin-top:2px}
+
+/* units / progress */
+.units{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.unit{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 16px}
+.unit .mark{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:.7rem;font-weight:700}
+.unit.done .mark{background:var(--accent);color:#fff}
+.unit.doing .mark{background:transparent;border:2px solid var(--signal);color:var(--signal)}
+.unit.todo .mark{background:transparent;border:2px solid var(--border);color:var(--text-2)}
+.unit .u-name{font-size:.92rem;font-weight:500}
+.unit .u-sub{display:block;font-family:var(--font-mono);font-size:.66rem;color:var(--text-2);letter-spacing:.04em}
+
+/* certifications */
+.cert-list{display:flex;flex-direction:column;gap:0}
+.cert{display:flex;align-items:baseline;gap:16px;padding:14px 0;border-bottom:1px solid var(--border)}
+.cert:last-child{border-bottom:0}
+.cert .c-year{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);flex-shrink:0;width:52px}
+.cert .c-name{font-weight:500}
+.cert .c-org{color:var(--text-2);font-size:.9rem}
+.empty{color:var(--text-2);font-style:italic;font-size:.92rem}
+
+/* education */
+.edu{display:flex;flex-direction:column;gap:18px}
+.edu-item{display:grid;grid-template-columns:120px 1fr;gap:18px}
+@media(max-width:560px){.edu-item{grid-template-columns:1fr;gap:4px}}
+.edu-item .when{font-family:var(--font-mono);font-size:.8rem;color:var(--text-2);padding-top:2px}
+.edu-item h3{font-family:var(--font-display);font-weight:600;font-size:1.05rem}
+.edu-item .where{color:var(--text-2);font-size:.92rem}
+
+/* contact / footer */
+.contact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:8px}
+.contact-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px}
+.contact-card .mono{margin-bottom:6px}
+.contact-card a,.contact-card span{font-weight:600;color:var(--text);word-break:break-word;font-size:.95rem}
+footer{padding:40px 0 60px;color:var(--text-2);font-size:.85rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-inner">
+    <div class="brand">Walter <span>Matagagwe</span></div>
+    <div class="nav-links">
+      <a href="#about">About</a>
+      <a href="#skills">Skills</a>
+      <a href="#projects">Projects</a>
+      <a href="#study">Studies</a>
+      <a href="#certs">Certifications</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <button class="theme-btn" id="themeBtn" aria-label="Toggle light / dark theme">◐</button>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap hero-grid">
+    <div class="hero">
+      <p class="mono" id="heroEyebrow"></p>
+      <h1 id="heroName"></h1>
+      <p class="lead" id="heroLead"></p>
+      <div class="cta" id="heroCta"></div>
+    </div>
+    <aside class="hud" aria-hidden="true" id="hud"></aside>
+  </div>
+</header>
+
+<main>
+  <section id="about">
+    <div class="wrap">
+      <div class="sec-head"><span class="num">01</span><h2>About</h2></div>
+      <div class="prose" id="aboutBox"></div>
+    </div>
+  </section>
+
+  <section id="skills">
+    <div class="wrap">
+      <div class="sec-head"><span class="num">02</span><h2>Technical Skills</h2></div>
+      <div class="skill-groups" id="skillsBox"></div>
+    </div>
+  </section>
+
+  <section id="projects">
+    <div class="wrap">
+      <div class="sec-head"><span class="num">03</span><h2>Projects</h2></div>
+      <div class="proj-grid" id="projBox"></div>
+    </div>
+  </section>
+
+  <section id="study">
+    <div class="wrap">
+      <div class="sec-head"><span class="num">04</span><h2>Diploma Progress</h2></div>
+      <div class="prose" style="margin-bottom:24px" id="studyIntro"></div>
+      <div class="units" id="unitsBox"></div>
+    </div>
+  </section>
+
+  <section id="certs">
+    <div class="wrap">
+      <div class="sec-head"><span class="num">05</span><h2>Certifications</h2></div>
+      <div class="cert-list" id="certBox"></div>
+    </div>
+  </section>
+
+  <section id="education">
+    <div class="wrap">
+      <div class="sec-head"><span class="num">06</span><h2>Education</h2></div>
+      <div class="edu" id="eduBox"></div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="wrap">
+      <div class="sec-head"><span class="num">07</span><h2>Get in touch</h2></div>
+      <div class="prose"><p id="contactLead"></p></div>
+      <div class="contact-grid" id="contactBox"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span id="footL"></span>
+  <span class="mono" id="footR"></span>
+</footer>
+
+<!-- =================================================================
+                    ⬇  YOUR CONTENT LIVES HERE  ⬇
+     =================================================================
+     HOW TO UPDATE THIS PORTFOLIO (no coding knowledge needed):
+
+     Everything you see on the page comes from the DATA object below.
+     Change the text between the quotes, save the file, refresh the page.
+
+     • Add a PROJECT  → copy one { ... } block inside "projects", paste it,
+                         edit it. status can be "live", "building" or "planned".
+     • Add a CERT     → add a line to "certifications": {year, name, org}.
+     • Mark a unit done → change its status to "done", "doing" or "todo".
+     • Change your bio → edit "about".
+     Nothing else needs touching. Commas between { } blocks matter — keep them.
+   ================================================================== -->
+<script>
+const DATA = {
+  profile:{
+    name:"Walter Matagagwe",
+    eyebrow:"Nairobi, Kenya · Computer Science · KNQF Level 6",
+    lead:"I'm a Computer Science student building <strong>full-stack and data systems</strong> — and steering my skills toward <strong>aerospace and avionics software</strong>.",
+    email:"waltermatagagweart@gmail.com",
+    phone:"+254 712 273 475",
+    linkedin:"https://www.linkedin.com/in/walter-matagagwe-39789529a",
+    github:"https://github.com/YOUR-USERNAME",          // ← put your real GitHub URL here
+    cvUrl:"Walter_Matagagwe_CV.pdf",                     // ← drop your CV PDF next to this file to enable the button
+    status:"Open to internships",
+    heading:"Aerospace software"
+  },
+
+  about:[
+    "I'm a Computer Science student at The Nairobi National Polytechnic (Reg. No. 40149), expected to graduate in 2028. I build full-stack web applications, cloud-deployed platforms and payment-integrated systems.",
+    "My long-term goal is to work in <strong>aerospace</strong> — bridging the database, distributed-systems and web engineering from my diploma toward avionics, telemetry and flight-data software. Alongside my studies I volunteer teaching digital literacy and supporting vulnerable members of my community."
+  ],
+
+  skills:[
+    {group:"Languages", items:["Python","JavaScript","SQL","HTML","CSS"]},
+    {group:"Frameworks & Tools", items:["FastAPI","React","Node.js","n8n","Git / GitHub","Supabase"]},
+    {group:"Data & Cloud", items:["PostgreSQL","Azure","Cloudflare Pages","Kubernetes"]},
+    {group:"Systems & Security", items:["REST API design","WebSockets","PWA","Networking","Cybersecurity fundamentals"]},
+    {group:"Payments", items:["M-Pesa (Daraja API)","Stripe"]}
+  ],
+
+  projects:[
+    {
+      title:"Siaka Cargo",
+      status:"building",
+      blurb:"A multi-tenant logistics SaaS platform for the East African freight corridor: real-time shipment tracking, AI-powered risk scoring, invoice auditing via Azure OCR and port-congestion forecasting.",
+      tags:["FastAPI","Supabase","React","n8n","M-Pesa","Stripe"],
+      links:[{label:"GitHub", url:"#"}]   // ← replace # with the repo link when ready
+    },
+    {
+      title:"Aircraft Maintenance-Log Database",
+      status:"building",
+      blurb:"A PostgreSQL database tracking aircraft, installed components, maintenance events, signoffs and full part-installation history — to airworthiness standards. 3NF with lookup tables, a many-to-many junction, triggers that keep current-location in sync with history, a partial unique index enforcing one-part-one-location, CHECK constraints, and views. Ships with a full design write-up. Extends my DBMS unit toward aviation systems.",
+      tags:["PostgreSQL","3NF","Triggers","Views","Database Design"],
+      links:[]   // ← add the GitHub repo link once you push Desktop/Portfolio to GitHub
+    },
+    {
+      title:"Flight-Telemetry Dashboard",
+      status:"planned",
+      blurb:"A ground-control style dashboard: a live-updating altitude/speed chart and a moving map marker, built in HTML/CSS/JS. Turns my Web Design unit into a portfolio piece aimed at aerospace software.",
+      tags:["JavaScript","Data Viz","HTML","CSS"],
+      links:[]
+    }
+  ],
+
+  studyIntro:"Diploma in Computer Science (KNQF Level 6) — The Nairobi National Polytechnic. Core units completed and in progress:",
+  units:[
+    {name:"Computer Organisation & Architecture", code:"CR/01/6", status:"done"},
+    {name:"Operating Systems Configuration", code:"CR/02/6", status:"done"},
+    {name:"Networking & Distributed Systems", code:"CR/03/6", status:"done"},
+    {name:"Database Management", code:"CR/05/6", status:"done"},
+    {name:"Web Designing", code:"CR/06/6", status:"doing"},
+    {name:"Graphics Design", code:"CR/04/6", status:"todo"},
+    {name:"Fundamentals of Programming", code:"CC/02/6", status:"todo"},
+    {name:"Algorithms & Data Structures", code:"CR/07/6", status:"todo"},
+    {name:"Artificial Intelligence Concepts", code:"—", status:"todo"}
+  ],
+
+  // Add certificates here as you earn them — newest first reads best.
+  certifications:[
+    // {year:"2026", name:"Introduction to Cybersecurity", org:"Cisco Networking Academy"},
+    // {year:"2026", name:"Python (Basic) Certificate", org:"HackerRank"},
+  ],
+
+  education:[
+    {when:"2025 – 2028", title:"Diploma in Computer Science (Level 6)", where:"The Nairobi National Polytechnic — Reg. No. 40149"},
+    {when:"2022", title:"Kenya Certificate of Secondary Education", where:"Friends School Mbale — Mean grade C+"}
+  ],
+
+  contactLead:"I'm open to internships, open-source collaboration and aerospace-adjacent projects. The fastest way to reach me is email."
+};
+
+/* ---------- render (you don't need to edit below this line) ---------- */
+const $ = (id)=>document.getElementById(id);
+const esc = (s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+const p = DATA.profile;
+$("heroEyebrow").textContent = p.eyebrow;
+$("heroName").textContent = p.name;
+$("heroLead").innerHTML = p.lead;
+
+const cta = [];
+if(p.email) cta.push(`<a class="btn primary" href="mailto:${p.email}">✉ Email me</a>`);
+if(p.linkedin) cta.push(`<a class="btn" href="${p.linkedin}" target="_blank" rel="noopener">in · LinkedIn</a>`);
+if(p.github && !p.github.includes("YOUR-USERNAME")) cta.push(`<a class="btn" href="${p.github}" target="_blank" rel="noopener">◇ GitHub</a>`);
+if(p.cvUrl) cta.push(`<a class="btn" href="${p.cvUrl}" target="_blank" rel="noopener">↓ Download CV</a>`);
+$("heroCta").innerHTML = cta.join("");
+
+$("hud").innerHTML = `
+  <div class="row"><span>LAT</span><span class="v">-1.2921</span></div>
+  <div class="row"><span>LON</span><span class="v">36.8219</span></div>
+  <div class="row"><span>HDG</span><span class="v sig">▸ ${esc(p.heading)}</span></div>
+  <div class="row"><span>STATUS</span><span class="v"><span class="dot"></span>${esc(p.status)}</span></div>`;
+
+$("aboutBox").innerHTML = DATA.about.map(x=>`<p>${x}</p>`).join("");
+
+$("skillsBox").innerHTML = DATA.skills.map(g=>`
+  <div class="skill-card">
+    <h3>${esc(g.group)}</h3>
+    <div class="chips">${g.items.map(i=>`<span class="chip">${esc(i)}</span>`).join("")}</div>
+  </div>`).join("");
+
+$("projBox").innerHTML = DATA.projects.map(pr=>{
+  const label = pr.status==="live"?"Live":pr.status==="building"?"In progress":"Planned";
+  const links = (pr.links||[]).filter(l=>l.url && l.url!=="#")
+      .map(l=>`<a href="${l.url}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("");
+  return `<article class="proj reveal">
+    <div class="top"><h3>${esc(pr.title)}</h3><span class="badge ${pr.status}">${label}</span></div>
+    <p>${esc(pr.blurb)}</p>
+    <div class="tags">${pr.tags.map(t=>`<span class="tag">#${esc(t)}</span>`).join("")}</div>
+    ${links?`<div class="links">${links}</div>`:""}
+  </article>`;
+}).join("");
+
+$("studyIntro").textContent = DATA.studyIntro;
+$("unitsBox").innerHTML = DATA.units.map(u=>{
+  const m = u.status==="done"?"✓":u.status==="doing"?"●":"";
+  return `<div class="unit ${u.status}">
+    <span class="mark">${m}</span>
+    <span><span class="u-name">${esc(u.name)}</span><span class="u-sub">${esc(u.code)}</span></span>
+  </div>`;
+}).join("");
+
+$("certBox").innerHTML = DATA.certifications.length
+  ? DATA.certifications.map(c=>`<div class="cert reveal">
+      <span class="c-year">${esc(c.year)}</span>
+      <span><span class="c-name">${esc(c.name)}</span> — <span class="c-org">${esc(c.org)}</span></span>
+    </div>`).join("")
+  : `<p class="empty">Certifications in progress — Cisco, HackerRank, Kaggle and Microsoft credentials coming soon. (Add them in the DATA block as you earn them.)</p>`;
+
+$("eduBox").innerHTML = DATA.education.map(e=>`
+  <div class="edu-item">
+    <div class="when">${esc(e.when)}</div>
+    <div><h3>${esc(e.title)}</h3><div class="where">${esc(e.where)}</div></div>
+  </div>`).join("");
+
+$("contactLead").textContent = DATA.contactLead;
+const contacts = [
+  {l:"Email", v:p.email, h:"mailto:"+p.email},
+  {l:"Phone", v:p.phone, h:"tel:"+p.phone.replace(/\s/g,"")},
+  {l:"LinkedIn", v:"walter-matagagwe", h:p.linkedin},
+];
+if(p.github && !p.github.includes("YOUR-USERNAME")) contacts.push({l:"GitHub", v:p.github.split("/").pop(), h:p.github});
+$("contactBox").innerHTML = contacts.map(c=>`
+  <div class="contact-card">
+    <div class="mono">${c.l}</div>
+    <a href="${c.h}" target="_blank" rel="noopener">${esc(c.v)}</a>
+  </div>`).join("");
+
+$("footL").textContent = `© ${new Date().getFullYear()} Walter Matagagwe`;
+$("footR").textContent = "Built with HTML · CSS · JavaScript";
+
+/* theme toggle (remembers your choice) */
+const root = document.documentElement;
+const saved = localStorage.getItem("theme");
+if(saved) root.setAttribute("data-theme", saved);
+$("themeBtn").addEventListener("click", ()=>{
+  const now = getComputedStyle(root).getPropertyValue("--bg").trim();
+  const isDark = root.getAttribute("data-theme")==="dark" ||
+                 (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme:dark)").matches);
+  const next = isDark ? "light" : "dark";
+  root.setAttribute("data-theme", next);
+  localStorage.setItem("theme", next);
+});
+
+/* gentle reveal on scroll */
+if(!matchMedia("(prefers-reduced-motion:reduce)").matches){
+  const io = new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}}),{threshold:.12});
+  document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
+}else{
+  document.querySelectorAll(".reveal").forEach(el=>el.classList.add("in"));
+}
+</script>
+</body>
+</html>
