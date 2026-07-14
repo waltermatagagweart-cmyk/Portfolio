@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flight Telemetry — 5Y-DHC</title>
+<meta name="description" content="A live glass-cockpit telemetry dashboard: nav map with moving aircraft, and live altitude & speed charts. Self-contained HTML/CSS/JS." />
+<style>
+:root{
+  --bg:#0B0F14; --panel:#121821; --panel-2:#0E141C; --border:#1F2A38;
+  --text:#E6EDF3; --text-2:#8A99AB; --grid:#16212E;
+  --accent:#37B0C0; --accent-2:#7FD4DF; --signal:#E0A458;
+  --good:#46D08A; --warn:#F5A524; --danger:#F26D6D;
+  --mono:ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',Menlo,Consolas,monospace;
+  --sans:system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#E9EEF3; --panel:#FFFFFF; --panel-2:#F2F6F9; --border:#D3DBE4;
+  --text:#111820; --text-2:#5A6675; --grid:#DCE4EC;
+  --accent:#12707E; --accent-2:#0C4E58; --signal:#B96A1E;
+  --good:#1E9E63; --warn:#B5731A; --danger:#C4443C;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  background-image:radial-gradient(1200px 600px at 70% -10%, color-mix(in srgb,var(--accent) 8%,transparent), transparent 60%);
+}
+.app{max-width:1200px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:14px;min-height:100%}
+
+/* ---- top bar ---- */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 18px}
+.flight{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.callsign{font-family:var(--mono);font-weight:600;font-size:1.15rem;letter-spacing:.06em}
+.callsign b{color:var(--accent)}
+.route{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:.95rem;color:var(--text-2)}
+.route .code{color:var(--text);font-weight:600}
+.route .arrow{color:var(--accent)}
+.aircraft{font-family:var(--mono);font-size:.72rem;color:var(--text-2);letter-spacing:.08em;
+  border:1px solid var(--border);border-radius:6px;padding:3px 8px}
+.topright{display:flex;align-items:center;gap:12px}
+.clock{font-family:var(--mono);font-size:.9rem;color:var(--text-2)}
+.phase-pill{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;font-weight:600;
+  padding:5px 12px;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  color:var(--accent-2);background:color-mix(in srgb,var(--accent) 14%,transparent);white-space:nowrap}
+.tbtn{background:var(--panel-2);border:1px solid var(--border);color:var(--text);width:34px;height:34px;
+  border-radius:8px;cursor:pointer;font-size:1rem;display:grid;place-items:center}
+.tbtn:hover{border-color:var(--accent)}
+
+/* ---- main grid ---- */
+.grid{display:grid;grid-template-columns:1.7fr 1fr;gap:14px}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;position:relative;overflow:hidden}
+.panel .label{position:absolute;top:10px;left:14px;z-index:2;font-family:var(--mono);font-size:.66rem;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--text-2)}
+.mapwrap{aspect-ratio:16/11}
+.mapwrap canvas{display:block;width:100%;height:100%}
+@media(max-width:860px){.mapwrap{aspect-ratio:16/12}}
+
+/* instrument column */
+.instr{display:flex;flex-direction:column;gap:14px}
+.readouts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gauge{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.gauge .k{font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-2)}
+.gauge .v{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;line-height:1;margin-top:8px;
+  font-size:clamp(1.5rem,4.4vw,2.1rem)}
+.gauge .u{font-size:.62rem;color:var(--text-2);margin-left:5px;font-weight:400;letter-spacing:.05em}
+.gauge.big .v{color:var(--accent-2)}
+.vs.up{color:var(--good)} .vs.down{color:var(--signal)}
+
+.compass-row{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:stretch}
+.compass{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px;display:grid;place-items:center}
+.compass canvas{width:130px;height:130px;display:block}
+.mini{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;justify-content:center}
+.mini .row{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono)}
+.mini .row .k{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-2)}
+.mini .row .v{font-weight:600;font-variant-numeric:tabular-nums}
+
+/* progress bar */
+.progress{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px}
+.progress .track{height:8px;border-radius:6px;background:var(--panel-2);overflow:hidden;margin:10px 0 6px;border:1px solid var(--border)}
+.progress .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0%}
+.progress .ends{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.66rem;color:var(--text-2)}
+
+/* charts */
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.charts{grid-template-columns:1fr}}
+.chart{aspect-ratio:16/7}
+.chart canvas{display:block;width:100%;height:100%}
+
+/* controls / footer */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px}
+.btn{background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:9px;
+  padding:9px 16px;font-weight:600;font-size:.9rem;cursor:pointer;font-family:var(--sans);display:inline-flex;gap:8px;align-items:center}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#05221f}
+.spd-group{display:flex;gap:4px;margin-left:auto;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:3px}
+.spd-group button{background:transparent;border:0;color:var(--text-2);padding:6px 12px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:.82rem;font-weight:600}
+.spd-group button.on{background:var(--accent);color:#05221f}
+.foot{color:var(--text-2);font-size:.78rem;text-align:center;padding:4px 0 8px}
+.foot b{color:var(--text-2)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:middle;
+  box-shadow:0 0 0 0 var(--good);animation:pp 2s infinite}
+@keyframes pp{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="flight">
+      <span class="callsign"><b>SK</b> 214</span>
+      <span class="route"><span class="code">HKJK</span><span class="arrow">→</span><span class="code">HKMO</span>
+        <span style="color:var(--text-2)">Nairobi – Mombasa</span></span>
+      <span class="aircraft">DHC-8-400 · 5Y-DHC</span>
+    </div>
+    <div class="topright">
+      <span class="clock" id="clock">--:--:-- UTC</span>
+      <span class="phase-pill" id="phase">STANDBY</span>
+      <button class="tbtn" id="theme" aria-label="Toggle theme">◐</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel mapwrap">
+      <span class="label">Navigation Display</span>
+      <canvas id="map"></canvas>
+    </div>
+
+    <div class="instr">
+      <div class="readouts">
+        <div class="gauge big"><div class="k">Altitude</div><div class="v"><span id="alt">0</span><span class="u">ft</span></div></div>
+        <div class="gauge big"><div class="k">Ground Speed</div><div class="v"><span id="gs">0</span><span class="u">kt</span></div></div>
+      </div>
+
+      <div class="compass-row">
+        <div class="compass"><canvas id="compass" width="130" height="130"></canvas></div>
+        <div class="mini">
+          <div class="row"><span class="k">Heading</span><span class="v" id="hdg">000°</span></div>
+          <div class="row"><span class="k">Vert. Speed</span><span class="v vs" id="vs">0 fpm</span></div>
+          <div class="row"><span class="k">Dist. to go</span><span class="v" id="dist">230 nm</span></div>
+          <div class="row"><span class="k">ETE</span><span class="v" id="ete">--:--</span></div>
+        </div>
+      </div>
+
+      <div class="progress">
+        <div class="ends"><span>Flight progress</span><span id="pct">0%</span></div>
+        <div class="track"><div class="fill" id="pfill"></div></div>
+        <div class="ends"><span>HKJK</span><span>HKMO</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="panel chart"><span class="label">Altitude · ft</span><canvas id="altChart"></canvas></div>
+    <div class="panel chart"><span class="label">Ground Speed · kt</span><canvas id="spdChart"></canvas></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="play">⏸ Pause</button>
+    <button class="btn" id="reset">↺ Reset</button>
+    <div class="spd-group" id="spd">
+      <button data-s="1" class="on">1×</button>
+      <button data-s="2">2×</button>
+      <button data-s="4">4×</button>
+    </div>
+  </div>
+
+  <div class="foot"><span class="dot"></span>Live simulated telemetry · self-contained HTML / CSS / JavaScript · fake data for demonstration</div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+   Flight Telemetry Dashboard — single-file, no dependencies.
+   A simulated Nairobi (HKJK) -> Mombasa (HKMO) flight drives a nav map,
+   instrument readouts, a heading compass, and two live charts.
+   ============================================================================ */
+
+const reduceMotion = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+// ---- flight model -----------------------------------------------------------
+const FLIGHT_SECONDS = 2400;     // 40 min of simulated flight
+const TOTAL_NM = 230;            // Nairobi -> Mombasa, approx
+const BASE_RATE = 20;            // sim-seconds advanced per real-second at 1x
+
+// Route waypoints in normalised map space (x: 0..1 left->right, y: 0..1 top->bottom)
+const ROUTE = [
+  {name:'HKJK', x:0.13, y:0.28},
+  {name:'MTITO',x:0.42, y:0.46},
+  {name:'VOI',  x:0.63, y:0.60},
+  {name:'HKMO', x:0.86, y:0.74},
+];
+// cumulative arc length for arc-length parametrisation
+const SEG = [], CUM = [0];
+for(let i=1;i<ROUTE.length;i++){
+  const d = Math.hypot(ROUTE[i].x-ROUTE[i-1].x, ROUTE[i].y-ROUTE[i-1].y);
+  SEG.push(d); CUM.push(CUM[i-1]+d);
+}
+const ROUTE_LEN = CUM[CUM.length-1];
+
+const lerp = (a,b,t)=>a+(b-a)*t;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const easeOut=t=>1-Math.pow(1-t,2);
+const easeIn =t=>t*t;
+
+function posAt(p){                     // point on route at progress p (0..1)
+  const target = clamp(p,0,1)*ROUTE_LEN;
+  let i=1; while(i<CUM.length-1 && CUM[i]<target) i++;
+  const t=(target-CUM[i-1])/(SEG[i-1]||1);
+  return { x:lerp(ROUTE[i-1].x,ROUTE[i].x,t), y:lerp(ROUTE[i-1].y,ROUTE[i].y,t) };
+}
+function flightState(p){               // altitude(ft), speed(kt), phase at progress p
+  let alt,spd,phase;
+  if(p<0.02){phase='TAXI';    alt=0;                              spd=lerp(0,20,p/0.02);}
+  else if(p<0.05){phase='TAKEOFF'; alt=lerp(0,1500,(p-0.02)/0.03); spd=lerp(20,175,(p-0.02)/0.03);}
+  else if(p<0.20){phase='CLIMB';   const q=(p-0.05)/0.15; alt=lerp(1500,36000,easeOut(q)); spd=lerp(175,462,q);}
+  else if(p<0.78){phase='CRUISE';  alt=36000+Math.sin(p*38)*160;  spd=460+Math.sin(p*26)*7;}
+  else if(p<0.95){phase='DESCENT'; const q=(p-0.78)/0.17; alt=lerp(36000,2200,easeIn(q)); spd=lerp(460,195,q);}
+  else if(p<0.99){phase='APPROACH';const q=(p-0.95)/0.04; alt=lerp(2200,0,q);            spd=lerp(195,140,q);}
+  else {phase='LANDED'; alt=0; spd=lerp(140,12,(p-0.99)/0.01);}
+  return {alt:Math.max(0,alt), spd:Math.max(0,spd), phase};
+}
+function headingAt(p){                 // compass heading in degrees (0=N, 90=E)
+  const a=posAt(clamp(p-0.004,0,1)), b=posAt(clamp(p+0.004,0,1));
+  const dx=b.x-a.x, dy=b.y-a.y;        // y increases downward; north is up
+  let deg=Math.atan2(dx,-dy)*180/Math.PI;
+  return (deg+360)%360;
+}
+
+// ---- state ------------------------------------------------------------------
+let simT=0, playing=!reduceMotion, rate=1, last=performance.now();
+let trail=[], altSamples=[], spdSamples=[], sampleAccum=0, trailAccum=0;
+
+// ---- colours (re-read on theme change so canvas matches CSS) -----------------
+let C={};
+function readColors(){
+  const s=getComputedStyle(document.documentElement);
+  const g=n=>s.getPropertyValue(n).trim();
+  C={bg:g('--panel'),bg2:g('--panel-2'),border:g('--border'),grid:g('--grid'),
+     text:g('--text'),text2:g('--text-2'),accent:g('--accent'),accent2:g('--accent-2'),
+     signal:g('--signal'),good:g('--good')};
+}
+
+// ---- canvas helpers ---------------------------------------------------------
+function fit(canvas){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const r=canvas.getBoundingClientRect();
+  const w=Math.max(1,Math.round(r.width)), h=Math.max(1,Math.round(r.height));
+  if(canvas.width!==w*dpr||canvas.height!==h*dpr){canvas.width=w*dpr;canvas.height=h*dpr;}
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx,w,h};
+}
+const $=id=>document.getElementById(id);
+const mapC=$('map'), altC=$('altChart'), spdC=$('spdChart'), cmpC=$('compass');
+
+// ---- map render -------------------------------------------------------------
+function drawMap(p){
+  const {ctx,w,h}=fit(mapC);
+  ctx.clearRect(0,0,w,h);
+  const pad=18, X=x=>pad+x*(w-2*pad), Y=y=>pad+y*(h-2*pad);
+
+  // graticule
+  ctx.strokeStyle=C.grid; ctx.lineWidth=1;
+  for(let i=0;i<=8;i++){const gx=pad+i/8*(w-2*pad);ctx.beginPath();ctx.moveTo(gx,pad);ctx.lineTo(gx,h-pad);ctx.stroke();}
+  for(let i=0;i<=6;i++){const gy=pad+i/6*(h-2*pad);ctx.beginPath();ctx.moveTo(pad,gy);ctx.lineTo(w-pad,gy);ctx.stroke();}
+
+  const ac=posAt(p), acx=X(ac.x), acy=Y(ac.y);
+
+  // range rings centred on aircraft (radar feel)
+  ctx.strokeStyle=C.border;
+  for(let r=40;r<=160;r+=40){ctx.beginPath();ctx.arc(acx,acy,r,0,Math.PI*2);ctx.stroke();}
+
+  // full planned route (faint)
+  ctx.strokeStyle=C.border; ctx.lineWidth=2; ctx.setLineDash([5,6]);
+  ctx.beginPath(); ROUTE.forEach((wp,i)=>{const px=X(wp.x),py=Y(wp.y);i?ctx.lineTo(px,py):ctx.moveTo(px,py);}); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // flown trail (bright, fading)
+  if(trail.length>1){
+    for(let i=1;i<trail.length;i++){
+      const a=trail[i-1], b=trail[i];
+      ctx.strokeStyle=C.accent; ctx.globalAlpha=0.12+0.6*(i/trail.length); ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.moveTo(X(a.x),Y(a.y));ctx.lineTo(X(b.x),Y(b.y));ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // waypoints
+  ROUTE.forEach(wp=>{
+    const px=X(wp.x),py=Y(wp.y);
+    ctx.fillStyle=C.bg; ctx.strokeStyle=C.text2; ctx.lineWidth=1.5;
+    ctx.save();ctx.translate(px,py);ctx.rotate(Math.PI/4);ctx.fillRect(-4,-4,8,8);ctx.strokeRect(-4,-4,8,8);ctx.restore();
+    ctx.fillStyle=C.text2; ctx.font='600 10px '+getComputedStyle(document.body).fontFamily;
+    ctx.textAlign='center'; ctx.fillText(wp.name,px,py-10);
+  });
+
+  // aircraft marker (triangle rotated to travel direction) + heading vector
+  const nx=posAt(clamp(p+0.004,0,1)), ang=Math.atan2(Y(nx.y)-acy, X(nx.x)-acx);
+  ctx.save(); ctx.translate(acx,acy); ctx.rotate(ang);
+  ctx.fillStyle=C.accent2;
+  ctx.shadowColor=C.accent; ctx.shadowBlur=14;
+  ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-8,-7);ctx.lineTo(-4,0);ctx.lineTo(-8,7);ctx.closePath();ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.strokeStyle=C.accent; ctx.globalAlpha=0.5; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(40,0);ctx.stroke(); ctx.globalAlpha=1;
+  ctx.restore();
+}
+
+// ---- compass ----------------------------------------------------------------
+function drawCompass(hdg){
+  const {ctx,w,h}=fit(cmpC), cx=w/2, cy=h/2, R=Math.min(w,h)/2-8;
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle=C.border; ctx.lineWidth=1.5; ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(-hdg*Math.PI/180);
+  const dirs=['N','E','S','W'];
+  for(let d=0; d<360; d+=30){
+    const a=d*Math.PI/180, x1=Math.sin(a)*(R-3), y1=-Math.cos(a)*(R-3);
+    const long=d%90===0, x2=Math.sin(a)*(R-(long?12:8)), y2=-Math.cos(a)*(R-(long?12:8));
+    ctx.strokeStyle=long?C.text2:C.border; ctx.lineWidth=long?2:1;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    if(long){ctx.fillStyle=d===0?C.accent2:C.text2;ctx.font='600 11px '+getComputedStyle(document.body).fontFamily;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(dirs[d/90],Math.sin(a)*(R-22),-Math.cos(a)*(R-22));}
+  }
+  ctx.restore();
+  // fixed aircraft symbol pointing up + heading readout
+  ctx.fillStyle=C.accent2; ctx.beginPath();
+  ctx.moveTo(cx,cy-12);ctx.lineTo(cx-7,cy+9);ctx.lineTo(cx,cy+4);ctx.lineTo(cx+7,cy+9);ctx.closePath();ctx.fill();
+  ctx.fillStyle=C.text; ctx.font='600 13px '+ (getComputedStyle(document.body).getPropertyValue('--mono'));
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(String(Math.round(hdg)).padStart(3,'0')+'°',cx,cy+R-6);
+}
+
+// ---- line charts ------------------------------------------------------------
+function drawChart(canvas,samples,vmin,vmax,color){
+  const {ctx,w,h}=fit(canvas);
+  ctx.clearRect(0,0,w,h);
+  const padL=6,padR=6,padT=16,padB=6, gw=w-padL-padR, gh=h-padT-padB;
+  ctx.strokeStyle=C.grid;ctx.lineWidth=1;
+  for(let i=0;i<=3;i++){const gy=padT+i/3*gh;ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();}
+  if(samples.length<2) return;
+  const n=samples.length, X=i=>padL+(i/(Math.max(n-1,1)))*gw,
+        Y=v=>padT+gh-((clamp(v,vmin,vmax)-vmin)/(vmax-vmin))*gh;
+  // area
+  ctx.beginPath();ctx.moveTo(X(0),Y(samples[0]));
+  for(let i=1;i<n;i++)ctx.lineTo(X(i),Y(samples[i]));
+  ctx.lineTo(X(n-1),padT+gh);ctx.lineTo(X(0),padT+gh);ctx.closePath();
+  const grad=ctx.createLinearGradient(0,padT,0,padT+gh);
+  grad.addColorStop(0,color.replace(')',' / 28%)').replace('rgb','rgba'));
+  grad.addColorStop(1,color.replace(')',' / 0%)').replace('rgb','rgba'));
+  ctx.fillStyle=C.accent; ctx.globalAlpha=0.14; ctx.fill(); ctx.globalAlpha=1;
+  // line
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(X(0),Y(samples[0]));
+  for(let i=1;i<n;i++)ctx.lineTo(X(i),Y(samples[i]));ctx.stroke();
+  // endpoint dot
+  ctx.fillStyle=color;ctx.beginPath();ctx.arc(X(n-1),Y(samples[n-1]),3.2,0,Math.PI*2);ctx.fill();
+}
+
+// ---- DOM readouts -----------------------------------------------------------
+const el={alt:$('alt'),gs:$('gs'),hdg:$('hdg'),vs:$('vs'),dist:$('dist'),ete:$('ete'),
+  phase:$('phase'),pct:$('pct'),pfill:$('pfill'),clock:$('clock')};
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+
+function updateReadouts(p,st,hdg,vs){
+  el.alt.textContent=fmt(st.alt);
+  el.gs.textContent=fmt(st.spd);
+  el.hdg.textContent=String(Math.round(hdg)).padStart(3,'0')+'°';
+  const vsEl=el.vs; vsEl.textContent=(vs>=0?'+':'')+fmt(vs)+' fpm';
+  vsEl.className='v vs '+(vs>60?'up':vs<-60?'down':'');
+  el.dist.textContent=fmt(TOTAL_NM*(1-p))+' nm';
+  const ete=FLIGHT_SECONDS*(1-p); el.ete.textContent=`${String(Math.floor(ete/60)).padStart(2,'0')}:${String(Math.floor(ete%60)).padStart(2,'0')}`;
+  el.phase.textContent=st.phase;
+  el.pct.textContent=Math.round(p*100)+'%';
+  el.pfill.style.width=(p*100)+'%';
+}
+
+// ---- main loop --------------------------------------------------------------
+function reset(){
+  simT=0; trail=[]; altSamples=[]; spdSamples=[]; sampleAccum=0; trailAccum=0;
+}
+function tick(now){
+  const dtReal=Math.min((now-last)/1000,0.1); last=now;
+  if(playing){
+    const dSim=dtReal*BASE_RATE*rate;
+    simT+=dSim;
+    if(simT>=FLIGHT_SECONDS){ reset(); }  // seamless loop for a continuous demo
+    // sampling by sim-time so the charts draw the whole flight profile
+    sampleAccum+=dSim; trailAccum+=dSim;
+    const p=simT/FLIGHT_SECONDS, st=flightState(p);
+    if(sampleAccum>=15){ sampleAccum=0; altSamples.push(st.alt); spdSamples.push(st.spd);
+      if(altSamples.length>170){altSamples.shift();spdSamples.shift();} }
+    if(trailAccum>=8){ trailAccum=0; trail.push(posAt(p)); if(trail.length>140)trail.shift(); }
+  }
+  const p=clamp(simT/FLIGHT_SECONDS,0,1);
+  const st=flightState(p), hdg=headingAt(p);
+  const st2=flightState(clamp(p+0.0025,0,1));
+  const vs=(st2.alt-st.alt)/((0.0025*FLIGHT_SECONDS)/60); // ft per minute
+
+  drawMap(p); drawCompass(hdg);
+  drawChart(altC,altSamples,0,40000,C.accent);
+  drawChart(spdC,spdSamples,0,520,C.accent);
+  updateReadouts(p,st,hdg,vs);
+  requestAnimationFrame(tick);
+}
+
+// ---- clock ------------------------------------------------------------------
+setInterval(()=>{el.clock.textContent=new Date().toISOString().slice(11,19)+' UTC';},1000);
+
+// ---- controls ---------------------------------------------------------------
+$('play').addEventListener('click',e=>{playing=!playing;e.target.textContent=playing?'⏸ Pause':'▶ Play';});
+$('reset').addEventListener('click',()=>{reset();});
+$('spd').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  rate=+b.dataset.s;[...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));});
+$('theme').addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const next=cur==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('ftd-theme',next); readColors();
+});
+const savedTheme=localStorage.getItem('ftd-theme'); if(savedTheme)document.documentElement.setAttribute('data-theme',savedTheme);
+if(reduceMotion)$('play').textContent='▶ Play';
+
+readColors();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
