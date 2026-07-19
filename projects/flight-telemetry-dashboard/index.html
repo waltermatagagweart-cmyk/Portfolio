@@ -106,6 +106,30 @@ body{
   box-shadow:0 0 0 0 var(--good);animation:pp 2s infinite}
 @keyframes pp{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
 @media (prefers-reduced-motion:reduce){.dot{animation:none}}
+
+/* status + telemetry lower row */
+.lower{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:860px){.lower{grid-template-columns:1fr}}
+.status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:34px 16px 16px}
+@media(max-width:480px){.status-grid{grid-template-columns:repeat(2,1fr)}}
+.stile{background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;gap:7px}
+.stile .sk{font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;color:var(--text-2)}
+.stile .sv{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:.76rem;font-weight:600;font-variant-numeric:tabular-nums}
+.led{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.led.ok{background:var(--good);box-shadow:0 0 6px var(--good)}
+.led.caution{background:var(--signal);box-shadow:0 0 6px var(--signal)}
+.led.off{background:var(--border)}
+.sv.ok{color:var(--text)} .sv.caution{color:var(--signal)} .sv.off{color:var(--text-2)}
+.logwrap{padding:34px 4px 6px}
+.tscroll{overflow:auto;max-height:236px}
+table.tlog{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem}
+table.tlog th{position:sticky;top:0;background:var(--panel);color:var(--text-2);font-weight:600;text-align:right;padding:7px 12px;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+table.tlog th:first-child,table.tlog td:first-child{text-align:left}
+table.tlog td{padding:6px 12px;text-align:right;border-bottom:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.tlog tbody tr:first-child td{color:var(--accent-2)}
+table.tlog td.phase-cell{color:var(--text-2)}
+.tscroll::-webkit-scrollbar{width:8px}
+.tscroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 </style>
 </head>
 <body>
@@ -158,6 +182,22 @@ body{
   <div class="charts">
     <div class="panel chart"><span class="label">Altitude · ft</span><canvas id="altChart"></canvas></div>
     <div class="panel chart"><span class="label">Ground Speed · kt</span><canvas id="spdChart"></canvas></div>
+  </div>
+
+  <div class="lower">
+    <div class="panel">
+      <span class="label">System Status</span>
+      <div class="status-grid" id="statusGrid"></div>
+    </div>
+    <div class="panel">
+      <span class="label">Telemetry Log</span>
+      <div class="logwrap"><div class="tscroll">
+        <table class="tlog">
+          <thead><tr><th>Time</th><th>Alt ft</th><th>GS kt</th><th>Hdg</th><th>V/S</th><th>Phase</th></tr></thead>
+          <tbody id="tlogBody"></tbody>
+        </table>
+      </div></div>
+    </div>
   </div>
 
   <div class="controls">
@@ -380,9 +420,47 @@ function updateReadouts(p,st,hdg,vs){
   el.pfill.style.width=(p*100)+'%';
 }
 
+// ---- system status panel + telemetry log -----------------------------------
+const SYS=['ENGINE','FUEL','HYD','AVIONICS','ELEC','GEAR','A/P','PRESS','DATALINK'];
+function systemsFor(p,phase){
+  const airborne = !['TAXI','TAKEOFF','LANDED'].includes(phase);
+  const cruiseish = ['CLIMB','CRUISE','DESCENT'].includes(phase);
+  const gearDown = ['TAXI','TAKEOFF','APPROACH','LANDED'].includes(phase);
+  const fuel = Math.max(6, Math.round(92 - p*70));
+  return {
+    'ENGINE':  {v:'NORMAL',                s:'ok'},
+    'FUEL':    {v:fuel+'%',                s: fuel<15?'caution':'ok'},
+    'HYD':     {v:'OK',                    s:'ok'},
+    'AVIONICS':{v:'ONLINE',                s:'ok'},
+    'ELEC':    {v:'OK',                    s:'ok'},
+    'GEAR':    {v: gearDown?'DOWN':'UP',   s:'ok'},
+    'A/P':     {v: cruiseish?'ENGAGED':'OFF', s: cruiseish?'ok':'off'},
+    'PRESS':   {v: airborne?'AUTO':'GND',  s:'ok'},
+    'DATALINK':{v:'LINKED',                s:'ok'}
+  };
+}
+function renderStatus(p,phase){
+  const g=$('statusGrid'); if(!g) return;
+  const m=systemsFor(p,phase);
+  g.innerHTML=SYS.map(k=>{const d=m[k];
+    return `<div class="stile"><span class="sk">${k}</span>`+
+           `<span class="sv ${d.s}"><span class="led ${d.s}"></span>${d.v}</span></div>`;}).join('');
+}
+function logRow(t,st,hdg,vs){
+  const b=$('tlogBody'); if(!b) return;
+  const mm=String(Math.floor(t/60)).padStart(2,'0'), ss=String(Math.floor(t%60)).padStart(2,'0');
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td>T+${mm}:${ss}</td><td>${fmt(st.alt)}</td><td>${fmt(st.spd)}</td>`+
+    `<td>${String(Math.round(hdg)).padStart(3,'0')}°</td><td>${(vs>=0?'+':'')+fmt(vs)}</td>`+
+    `<td class="phase-cell">${st.phase}</td>`;
+  b.prepend(tr);
+  while(b.children.length>40) b.removeChild(b.lastChild);
+}
+
 // ---- main loop --------------------------------------------------------------
 function reset(){
   simT=0; trail=[]; altSamples=[]; spdSamples=[]; sampleAccum=0; trailAccum=0;
+  const b=$('tlogBody'); if(b) b.innerHTML='';
 }
 function tick(now){
   const dtReal=Math.min((now-last)/1000,0.1); last=now;
@@ -394,7 +472,10 @@ function tick(now){
     sampleAccum+=dSim; trailAccum+=dSim;
     const p=simT/FLIGHT_SECONDS, st=flightState(p);
     if(sampleAccum>=15){ sampleAccum=0; altSamples.push(st.alt); spdSamples.push(st.spd);
-      if(altSamples.length>170){altSamples.shift();spdSamples.shift();} }
+      if(altSamples.length>170){altSamples.shift();spdSamples.shift();}
+      const h=headingAt(p), s2=flightState(clamp(p+0.0025,0,1));
+      const vsS=(s2.alt-st.alt)/((0.0025*FLIGHT_SECONDS)/60);
+      logRow(simT,st,h,vsS); renderStatus(p,st.phase); }
     if(trailAccum>=8){ trailAccum=0; trail.push(posAt(p)); if(trail.length>140)trail.shift(); }
   }
   const p=clamp(simT/FLIGHT_SECONDS,0,1);
@@ -427,6 +508,7 @@ const savedTheme=localStorage.getItem('ftd-theme'); if(savedTheme)document.docum
 if(reduceMotion)$('play').textContent='▶ Play';
 
 readColors();
+renderStatus(0,'TAXI');
 requestAnimationFrame(tick);
 </script>
 </body>

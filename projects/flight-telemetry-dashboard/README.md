@@ -17,6 +17,12 @@ compass, and two live-updating charts.
 - **Heading compass** — a rotating compass rose with the current heading.
 - **Live charts** — altitude and ground speed plotted over the flight, drawing the real
   climb → cruise → descent profile as it flies.
+- **System status panel** — an annunciator of nine systems (engine, fuel, hydraulics,
+  avionics, gear, autopilot, pressurisation, data link) with colour-coded LEDs that react
+  to the flight phase — gear drops for approach, autopilot engages in the climb, fuel burns
+  down over the flight.
+- **Telemetry log** — a live data table that appends a timestamped row (altitude, ground
+  speed, heading, vertical speed, phase) at each sample, newest at the top.
 - **Controls** — play/pause, reset, and 1× / 2× / 4× simulation speed.
 - **Light & dark themes**, and it respects `prefers-reduced-motion` (starts paused).
 
