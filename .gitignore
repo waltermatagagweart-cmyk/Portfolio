@@ -12,3 +12,8 @@ desktop.ini
 
 # Dependencies (if you add JS tooling later)
 node_modules/
+
+# python
+__pycache__/
+.pytest_cache/
+*.pyc
