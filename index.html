@@ -314,10 +314,17 @@ const DATA = {
     },
     {
       title:"Aircraft Maintenance-Log Database",
-      status:"building",
+      status:"live",
       blurb:"A PostgreSQL database tracking aircraft, installed components, maintenance events, signoffs and full part-installation history — to airworthiness standards. 3NF with lookup tables, a many-to-many junction, triggers that keep current-location in sync with history, a partial unique index enforcing one-part-one-location, CHECK constraints, and views. Ships with a full design write-up. Extends my DBMS unit toward aviation systems.",
       tags:["PostgreSQL","3NF","Triggers","Views","Database Design"],
       links:[{label:"View code + design doc", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/aircraft-maintenance-db"}]
+    },
+    {
+      title:"Aircraft Maintenance API",
+      status:"live",
+      blurb:"An async REST API that turns the maintenance database above into a real running service — FastAPI + SQLAlchemy 2.0 (async) + asyncpg. Pydantic validation mirrors the database's own CHECK constraints, report endpoints query the SQL views directly instead of re-deriving their logic, and Docker Compose spins up Postgres + the API in one command. 12 idempotent integration tests, run twice back-to-back to prove it.",
+      tags:["FastAPI","SQLAlchemy","asyncpg","Pydantic","Docker","pytest"],
+      links:[{label:"Code + docs", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/aircraft-maintenance-api"}]
     },
     {
       title:"Flight-Telemetry Dashboard",

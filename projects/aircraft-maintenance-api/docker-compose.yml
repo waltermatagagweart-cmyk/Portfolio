@@ -1,0 +1,31 @@
+# Spins up Postgres + loads the schema (from the sibling aircraft-maintenance-db
+# project) + runs the API, all in one command: `docker compose up`
+#
+# API docs then live at http://localhost:8000/docs
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: maintenance_log
+    ports:
+      - "5432:5432"
+    volumes:
+      - ../aircraft-maintenance-db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/maintenance_log
+    depends_on:
+      db:
+        condition: service_healthy

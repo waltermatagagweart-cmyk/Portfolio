@@ -12,6 +12,11 @@ Real-world database design for aviation maintenance tracking — 3NF schema, tri
 - **[DESIGN.md](aircraft-maintenance-db/DESIGN.md)** — Deep dive: schema design decisions, referential integrity, modern SQL patterns (1,200+ lines)
 - **Code:** [PostgreSQL schema + queries](../projects/aircraft-maintenance-db/)
 
+### Aircraft Maintenance API
+Async REST API (FastAPI + SQLAlchemy 2.0 + asyncpg) serving the maintenance database above as a real running service — validation, report endpoints, Docker Compose, idempotent test suite.
+- **[README](aircraft-maintenance-api/README.md)** — Endpoints, running it, testing, design notes
+- **Code:** [FastAPI + SQLAlchemy + Docker](../projects/aircraft-maintenance-api/)
+
 ### Flight Telemetry Dashboard
 Interactive glass-cockpit dashboard built with HTML/CSS/Canvas. Real-time charts, navigation display, system annunciators, and telemetry log.
 - **[README](flight-telemetry-dashboard/README.md)** — Feature overview, Canvas rendering, data simulation
