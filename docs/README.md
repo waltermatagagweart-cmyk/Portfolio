@@ -23,6 +23,12 @@ Interactive glass-cockpit dashboard built with HTML/CSS/Canvas. Real-time charts
 - **Live demo:** [flight-telemetry-dashboard](https://waltermatagagweart-cmyk.github.io/Portfolio/projects/flight-telemetry-dashboard/)
 - **Code:** [Self-contained HTML + CSS + JS](../projects/flight-telemetry-dashboard/)
 
+### Satellite Ground-Track Visualizer
+Real-time two-body Keplerian orbit propagator with a live ground-track map — ISS, sun-synchronous, and geostationary presets. Physics verified against known orbital periods, velocities, and inclination bounds before shipping.
+- **[README](satellite-ground-track/README.md)** — Orbital mechanics, verification checks, simplifications
+- **Live demo:** [satellite-ground-track](https://waltermatagagweart-cmyk.github.io/Portfolio/projects/satellite-ground-track/)
+- **Code:** [Self-contained HTML + CSS + JS](../projects/satellite-ground-track/)
+
 ### Rocket Ascent Simulator
 Python numerical-methods project. Physics-based simulation of vertical rocket ascent with variable mass, altitude-dependent gravity, and atmospheric drag.
 - **[README](rocket-ascent-sim/README.md)** — Physics model, integration method, test suite, sample ascent profile
