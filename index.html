@@ -334,6 +334,13 @@ const DATA = {
       links:[{label:"Live demo", url:"https://waltermatagagweart-cmyk.github.io/Portfolio/projects/flight-telemetry-dashboard/"},{label:"Code", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/flight-telemetry-dashboard"}]
     },
     {
+      title:"Airfoil Aerodynamics Analyzer",
+      status:"live",
+      blurb:"A Python tool predicting airfoil lift via two independent methods — classical thin airfoil theory (analytic Fourier/Glauert solution) and a discrete vortex panel method (the 1/4-3/4 rule) — cross-checked against each other and against literature values. Reproduces the universal 2*pi lift-curve slope exactly for a flat plate and NACA 2412's documented -2.08deg zero-lift angle. 15 passing tests.",
+      tags:["Python","NumPy","Aerodynamics","Numerical Methods","Matplotlib"],
+      links:[{label:"Code + results", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/airfoil-analyzer"}]
+    },
+    {
       title:"Satellite Ground-Track Visualizer",
       status:"live",
       blurb:"A real-time two-body Keplerian orbit propagator with a live ground-track map, in a single self-contained HTML/CSS/JS file. Solves Kepler's equation by Newton-Raphson, rotates perifocal coordinates into ECI then Earth-fixed frame via GMST, and renders ISS / sun-synchronous / geostationary presets with altitude, velocity and lat/lon telemetry. Every core physics value verified against known orbital periods and velocities before shipping.",

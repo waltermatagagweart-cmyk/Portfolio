@@ -23,6 +23,11 @@ Interactive glass-cockpit dashboard built with HTML/CSS/Canvas. Real-time charts
 - **Live demo:** [flight-telemetry-dashboard](https://waltermatagagweart-cmyk.github.io/Portfolio/projects/flight-telemetry-dashboard/)
 - **Code:** [Self-contained HTML + CSS + JS](../projects/flight-telemetry-dashboard/)
 
+### Airfoil Aerodynamics Analyzer
+Predicts airfoil lift via two independent methods — classical thin airfoil theory and a discrete vortex panel method — cross-checked against each other and against known literature values (NACA 2412's zero-lift angle, the universal 2π lift-curve slope).
+- **[README](airfoil-analyzer/README.md)** — Methods, verification table, sample plots
+- **Code:** [Python + NumPy + pytest](../projects/airfoil-analyzer/)
+
 ### Satellite Ground-Track Visualizer
 Real-time two-body Keplerian orbit propagator with a live ground-track map — ISS, sun-synchronous, and geostationary presets. Physics verified against known orbital periods, velocities, and inclination bounds before shipping.
 - **[README](satellite-ground-track/README.md)** — Orbital mechanics, verification checks, simplifications
