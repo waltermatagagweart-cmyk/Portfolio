@@ -3,34 +3,68 @@ Aircraft Maintenance Log API
 Async FastAPI service for managing aircraft maintenance records.
 Routes maintenance data through a real PostgreSQL backend with proper ORM, validation, and error handling.
 
-Production-ready: connection pooling, transaction safety, proper HTTP semantics, openapi docs.
+Production-ready: connection pooling, transaction safety, proper HTTP semantics, openapi docs,
+JWT auth on write routes, in-process rate limiting.
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query, status
+from fastapi import FastAPI, HTTPException, Depends, Query, status, Request
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import select, desc, func, ForeignKey, CheckConstraint, UniqueConstraint, Index, and_, or_, text
 from sqlalchemy.types import String, Integer, Numeric, Date, DateTime, Boolean, Enum as SQLEnum
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional, List, AsyncGenerator
+from pathlib import Path
+from urllib.parse import urlsplit
+from contextlib import asynccontextmanager
 import os
+import time
+import asyncio
+import logging
 from enum import Enum as PyEnum
+
+import asyncpg
+import bcrypt
+import jwt
+from starlette.middleware.base import BaseHTTPMiddleware
+
+logger = logging.getLogger("maintenance_api")
 
 # =============================================================================
 #  CONFIG & ENGINE
 # =============================================================================
 
+def _normalize_async_url(url: str) -> str:
+    """Hosted providers (e.g. Render) hand out postgres:// or postgresql://;
+    SQLAlchemy's async engine needs the +asyncpg dialect prefix. Accept all
+    three so the same code works locally and once deployed."""
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+    return url
+
+def _is_local_host(url: str) -> bool:
+    host = urlsplit(url).hostname or ""
+    return host in ("localhost", "127.0.0.1", "db")  # "db" = docker-compose service name
+
 # Read DATABASE_URL from environment (format: postgresql+asyncpg://user:password@host:port/dbname)
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/maintenance_log")
+DATABASE_URL = _normalize_async_url(
+    os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/maintenance_log")
+)
+# Encrypt in transit for anything that isn't a local/docker-compose Postgres.
+_DB_CONNECT_ARGS = {} if _is_local_host(DATABASE_URL) else {"ssl": "require"}
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    pool_size=20,
-    max_overflow=10,
-    pool_pre_ping=True
+    pool_size=5,
+    max_overflow=5,
+    pool_pre_ping=True,
+    connect_args=_DB_CONNECT_ARGS,
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -279,6 +313,176 @@ class ComponentLocationResponse(BaseModel):
     installed_date: Optional[date]
     installed_hours: Optional[float]
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+# =============================================================================
+#  AUTH — JWT bearer tokens, OAuth2 password flow (so Swagger's "Authorize"
+#  button works out of the box). Design decision: GET routes stay public so
+#  the deployed demo is browsable with zero setup; only POST/PUT routes are
+#  gated, since those are the ones that mutate the shared demo database.
+#
+#  There is one demo account, configured via env vars (DEMO_USERNAME /
+#  DEMO_PASSWORD) rather than a users table — this is a portfolio demo over a
+#  small fake fleet, not a multi-tenant system, so a single shared credential
+#  is the right amount of auth for what it's protecting. The password is
+#  still real-hashed with bcrypt (not compared as plain text), so the code
+#  path is the same one a multi-user version would use.
+# =============================================================================
+
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-only-insecure-secret-change-me")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+
+DEMO_USERNAME = os.getenv("DEMO_USERNAME", "recruiter")
+# Intentionally a documented, public demo credential (see README) — hashed
+# for real with bcrypt so the verification code path is the genuine article,
+# not a toy string comparison.
+DEMO_PASSWORD_HASH = bcrypt.hashpw(os.getenv("DEMO_PASSWORD", "aircraft-demo").encode("utf-8"), bcrypt.gensalt())
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+
+def verify_password(plain_password: str, hashed_password: bytes) -> bool:
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password)
+
+def create_access_token(subject: str, expires_minutes: int = JWT_EXPIRE_MINUTES) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+    return jwt.encode({"sub": subject, "exp": expire}, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> str:
+    """Dependency that protects write routes. Raises 401 (with a
+    WWW-Authenticate header, so Swagger/browsers know to prompt for a token)
+    on a missing, malformed, expired, or forged token."""
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        raise unauthorized
+    username = payload.get("sub")
+    if not username:
+        raise unauthorized
+    return username
+
+# =============================================================================
+#  RATE LIMITING — in-process, fixed-window, keyed by client IP.
+#
+#  "In-process" means the request counters live in this one Python process's
+#  memory. That's correct and sufficient for a single instance (which is what
+#  the free-tier deploy is), but it would silently under-count on more than
+#  one instance, since each instance would keep its own independent
+#  counters — a multi-instance deploy would need a shared store (e.g. Redis)
+#  instead. Documented here and in the README rather than left implicit.
+#
+#  /health is exempt so Render's own health checks can't get 429'd and mark
+#  the service unhealthy.
+# =============================================================================
+
+RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "60"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    EXEMPT_PATHS = {"/health"}
+
+    def __init__(self, app, max_requests: int, window_seconds: int):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._buckets: dict[str, tuple[int, int]] = {}
+        self._lock = asyncio.Lock()
+
+    @staticmethod
+    def _client_key(request: Request) -> str:
+        # Trusts X-Forwarded-For, which is correct behind Render's proxy
+        # (which sets it) but would be spoofable if this API were ever
+        # exposed directly with no trusted proxy in front — acceptable for
+        # a portfolio demo, noted here rather than silently assumed safe.
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.client.host if request.client else "unknown"
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in self.EXEMPT_PATHS:
+            return await call_next(request)
+
+        key = self._client_key(request)
+        now = int(time.time())
+        window_start = now - (now % self.window_seconds)
+        reset_at = window_start + self.window_seconds
+
+        async with self._lock:
+            bucket_start, count = self._buckets.get(key, (window_start, 0))
+            if bucket_start != window_start:
+                bucket_start, count = window_start, 0
+            count += 1
+            self._buckets[key] = (bucket_start, count)
+
+        if count > self.max_requests:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "Rate limit exceeded. Try again later."},
+                headers={
+                    "Retry-After": str(max(reset_at - now, 1)),
+                    "X-RateLimit-Limit": str(self.max_requests),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(reset_at),
+                },
+            )
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(self.max_requests)
+        response.headers["X-RateLimit-Remaining"] = str(max(self.max_requests - count, 0))
+        response.headers["X-RateLimit-Reset"] = str(reset_at)
+        return response
+
+# =============================================================================
+#  DB BOOTSTRAP — applies schema.sql (from the sibling aircraft-maintenance-db
+#  project) on startup when RUN_DB_BOOTSTRAP=true. Off by default locally,
+#  since docker-compose already loads the schema once via Postgres's own
+#  init-script volume mount. On for the hosted demo (set in render.yaml),
+#  since Render's managed Postgres has no equivalent init-script mechanism
+#  and starts genuinely empty.
+#
+#  schema.sql itself is idempotent (DROP ... IF EXISTS CASCADE, then CREATE +
+#  INSERT), so re-running it is always safe — never a duplicate row, never an
+#  "already exists" crash. It runs via a raw asyncpg connection rather than
+#  through the SQLAlchemy engine because asyncpg's execute() is what supports
+#  running a whole multi-statement .sql file in one call when no parameters
+#  are passed; that isn't something SQLAlchemy's engine execution path
+#  guarantees for arbitrary scripts.
+# =============================================================================
+
+RUN_DB_BOOTSTRAP = os.getenv("RUN_DB_BOOTSTRAP", "false").lower() == "true"
+_ASYNCPG_DSN = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1)
+_ASYNCPG_SSL = None if _is_local_host(DATABASE_URL) else "require"
+
+async def run_db_bootstrap() -> None:
+    schema_path = Path(__file__).resolve().parent.parent / "aircraft-maintenance-db" / "schema.sql"
+    sql = schema_path.read_text(encoding="utf-8")
+    conn = await asyncpg.connect(_ASYNCPG_DSN, ssl=_ASYNCPG_SSL)
+    try:
+        await conn.execute(sql)
+    finally:
+        await conn.close()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if RUN_DB_BOOTSTRAP:
+        try:
+            await run_db_bootstrap()
+            logger.info("DB bootstrap: schema.sql applied.")
+        except Exception:
+            logger.exception(
+                "DB bootstrap failed — continuing startup anyway; "
+                "/health will report DB status, but tables may be missing."
+            )
+    yield
+
 # =============================================================================
 #  FASTAPI APP & ROUTES
 # =============================================================================
@@ -288,14 +492,38 @@ app = FastAPI(
     description="Manage aircraft maintenance records, track components, and ensure airworthiness compliance.",
     version="1.0.0",
     docs_url="/docs",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
+
+app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=RATE_LIMIT_MAX_REQUESTS,
+    window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# ---- AUTH ----
+
+@app.post("/auth/token", response_model=Token, tags=["Auth"])
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Get a bearer token (OAuth2 password flow — use Swagger's "Authorize"
+    button, or POST username/password as form data here directly). Demo
+    credentials are documented in the README; GET routes don't need one.
+    """
+    if form_data.username != DEMO_USERNAME or not verify_password(form_data.password, DEMO_PASSWORD_HASH):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return Token(access_token=create_access_token(subject=form_data.username))
 
 # ---- AIRCRAFT ----
 
 @app.post("/aircraft", response_model=AircraftResponse, status_code=status.HTTP_201_CREATED, tags=["Aircraft"])
-async def create_aircraft(aircraft: AircraftCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new aircraft."""
+async def create_aircraft(aircraft: AircraftCreate, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_user)):
+    """Create a new aircraft. Requires a bearer token."""
     db_aircraft = Aircraft(**aircraft.model_dump())
     db.add(db_aircraft)
     try:
@@ -322,8 +550,8 @@ async def list_aircraft(skip: int = Query(0, ge=0), limit: int = Query(100, ge=1
     return result.scalars().all()
 
 @app.put("/aircraft/{aircraft_id}", response_model=AircraftResponse, tags=["Aircraft"])
-async def update_aircraft(aircraft_id: int, aircraft: AircraftCreate, db: AsyncSession = Depends(get_db)):
-    """Update an aircraft."""
+async def update_aircraft(aircraft_id: int, aircraft: AircraftCreate, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_user)):
+    """Update an aircraft. Requires a bearer token."""
     result = await db.execute(select(Aircraft).where(Aircraft.aircraft_id == aircraft_id))
     db_aircraft = result.scalar_one_or_none()
     if not db_aircraft:
@@ -341,8 +569,8 @@ async def update_aircraft(aircraft_id: int, aircraft: AircraftCreate, db: AsyncS
 # ---- COMPONENTS ----
 
 @app.post("/components", response_model=ComponentResponse, status_code=status.HTTP_201_CREATED, tags=["Components"])
-async def create_component(component: ComponentCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new component (part)."""
+async def create_component(component: ComponentCreate, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_user)):
+    """Create a new component (part). Requires a bearer token."""
     db_component = Component(**component.model_dump())
     db.add(db_component)
     try:
@@ -371,8 +599,8 @@ async def list_components(skip: int = Query(0, ge=0), limit: int = Query(100, ge
 # ---- TECHNICIANS ----
 
 @app.post("/technicians", response_model=TechnicianResponse, status_code=status.HTTP_201_CREATED, tags=["Technicians"])
-async def create_technician(technician: TechnicianCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new technician."""
+async def create_technician(technician: TechnicianCreate, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_user)):
+    """Create a new technician. Requires a bearer token."""
     db_technician = Technician(**technician.model_dump())
     db.add(db_technician)
     try:
@@ -401,8 +629,8 @@ async def list_technicians(skip: int = Query(0, ge=0), limit: int = Query(100, g
 # ---- MAINTENANCE EVENTS ----
 
 @app.post("/events", response_model=MaintenanceEventResponse, status_code=status.HTTP_201_CREATED, tags=["Events"])
-async def create_event(event: MaintenanceEventCreate, db: AsyncSession = Depends(get_db)):
-    """Record a maintenance event."""
+async def create_event(event: MaintenanceEventCreate, db: AsyncSession = Depends(get_db), current_user: str = Depends(get_current_user)):
+    """Record a maintenance event. Requires a bearer token."""
     db_event = MaintenanceEvent(**event.model_dump())
     db.add(db_event)
     try:

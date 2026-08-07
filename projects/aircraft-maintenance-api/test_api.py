@@ -12,7 +12,10 @@ import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import text
 
-from main import app, AsyncSessionLocal
+from main import app, AsyncSessionLocal, RATE_LIMIT_MAX_REQUESTS, DEMO_USERNAME
+
+# Matches main.py's DEMO_PASSWORD default — tests don't override that env var.
+DEMO_PASSWORD = "aircraft-demo"
 
 BASE_URL = "http://test"
 
@@ -51,6 +54,15 @@ async def client():
         yield ac
 
 
+@pytest_asyncio.fixture(scope="session")
+async def auth_headers(client):
+    """A valid bearer token for the demo account, for tests that exercise
+    write-route logic (validation, FK/constraint errors) past the auth gate."""
+    resp = await client.post("/auth/token", data={"username": DEMO_USERNAME, "password": DEMO_PASSWORD})
+    assert resp.status_code == 200, resp.text
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+
 @pytest.mark.asyncio
 async def test_health(client):
     resp = await client.get("/health")
@@ -59,7 +71,7 @@ async def test_health(client):
 
 
 @pytest.mark.asyncio
-async def test_create_and_get_aircraft(client):
+async def test_create_and_get_aircraft(client, auth_headers):
     payload = {
         "registration_number": "5Y-TST",
         "model_id": 1,
@@ -68,7 +80,7 @@ async def test_create_and_get_aircraft(client):
         "total_airframe_cycles": 50,
         "status": "Active",
     }
-    resp = await client.post("/aircraft", json=payload)
+    resp = await client.post("/aircraft", json=payload, headers=auth_headers)
     assert resp.status_code == 201
     created = resp.json()
     assert created["registration_number"] == "5Y-TST"
@@ -86,14 +98,14 @@ async def test_get_nonexistent_aircraft_404(client):
 
 
 @pytest.mark.asyncio
-async def test_create_aircraft_invalid_status_rejected(client):
+async def test_create_aircraft_invalid_status_rejected(client, auth_headers):
     """Pydantic validation should reject an out-of-domain status before it hits the DB."""
     payload = {
         "registration_number": "5Y-BAD",
         "model_id": 1,
         "status": "Flying",  # not one of Active/In Maintenance/Stored/Retired
     }
-    resp = await client.post("/aircraft", json=payload)
+    resp = await client.post("/aircraft", json=payload, headers=auth_headers)
     assert resp.status_code == 422
 
 
@@ -105,19 +117,19 @@ async def test_list_aircraft_pagination(client):
 
 
 @pytest.mark.asyncio
-async def test_create_technician_invalid_cert_rejected(client):
+async def test_create_technician_invalid_cert_rejected(client, auth_headers):
     payload = {
         "license_number": "XX-00001",
         "first_name": "Test",
         "last_name": "Person",
         "certification_type": "Wizard",  # not a real cert type
     }
-    resp = await client.post("/technicians", json=payload)
+    resp = await client.post("/technicians", json=payload, headers=auth_headers)
     assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_create_technician_and_get(client):
+async def test_create_technician_and_get(client, auth_headers):
     payload = {
         "license_number": "TS-99999",
         "first_name": "Amina",
@@ -125,7 +137,7 @@ async def test_create_technician_and_get(client):
         "certification_type": "A&P",
         "email": "amina.njoroge@example.com",
     }
-    resp = await client.post("/technicians", json=payload)
+    resp = await client.post("/technicians", json=payload, headers=auth_headers)
     assert resp.status_code == 201
     tech_id = resp.json()["technician_id"]
 
@@ -135,7 +147,7 @@ async def test_create_technician_and_get(client):
 
 
 @pytest.mark.asyncio
-async def test_create_event_requires_valid_aircraft(client):
+async def test_create_event_requires_valid_aircraft(client, auth_headers):
     """A maintenance event referencing a non-existent aircraft should fail (FK violation -> 400)."""
     payload = {
         "aircraft_id": 999999,
@@ -145,12 +157,12 @@ async def test_create_event_requires_valid_aircraft(client):
         "aircraft_hours_at_event": 10.0,
         "work_status": "Completed",
     }
-    resp = await client.post("/events", json=payload)
+    resp = await client.post("/events", json=payload, headers=auth_headers)
     assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
-async def test_event_component_hours_without_component_rejected(client):
+async def test_event_component_hours_without_component_rejected(client, auth_headers):
     """Schema rule: component_hours_at_event requires component_id to be set."""
     payload = {
         "aircraft_id": 1,
@@ -162,7 +174,7 @@ async def test_event_component_hours_without_component_rejected(client):
         "component_hours_at_event": 5.0,  # invalid: no component_id
         "work_status": "Completed",
     }
-    resp = await client.post("/events", json=payload)
+    resp = await client.post("/events", json=payload, headers=auth_headers)
     assert resp.status_code == 400
 
 
@@ -190,3 +202,74 @@ async def test_component_location_report(client):
     resp = await client.get("/reports/component-location")
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
+
+
+# ---- AUTH ----
+
+@pytest.mark.asyncio
+async def test_write_route_without_token_rejected(client):
+    """POST/PUT routes must require a bearer token; GETs already proved public above."""
+    payload = {"registration_number": "5Y-NOA", "model_id": 1}
+    resp = await client.post("/aircraft", json=payload)
+    assert resp.status_code == 401
+    assert "WWW-Authenticate" in resp.headers
+
+
+@pytest.mark.asyncio
+async def test_login_wrong_password_rejected(client):
+    resp = await client.post("/auth/token", data={"username": DEMO_USERNAME, "password": "wrong-password"})
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_login_success_then_write_with_token(client):
+    login_resp = await client.post("/auth/token", data={"username": DEMO_USERNAME, "password": DEMO_PASSWORD})
+    assert login_resp.status_code == 200
+    body = login_resp.json()
+    assert body["token_type"] == "bearer"
+    token = body["access_token"]
+
+    payload = {"registration_number": "5Y-DBG", "model_id": 1, "msn": "AUTH-TEST-0001"}
+    resp = await client.post("/aircraft", json=payload, headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 201
+    assert resp.json()["registration_number"] == "5Y-DBG"
+
+
+@pytest.mark.asyncio
+async def test_write_route_with_garbage_token_rejected(client):
+    resp = await client.post(
+        "/aircraft",
+        json={"registration_number": "5Y-NOA", "model_id": 1},
+        headers={"Authorization": "Bearer not-a-real-token"},
+    )
+    assert resp.status_code == 401
+
+
+# ---- RATE LIMITING ----
+
+@pytest.mark.asyncio
+async def test_rate_limit_returns_429_with_headers(client):
+    """
+    Fires requests tagged with a synthetic X-Forwarded-For IP that no other
+    test in this session uses, so this test's counter starts fresh at 0
+    regardless of how much traffic earlier tests generated (the limiter's
+    state is shared process-wide for the whole session-scoped client).
+    """
+    headers = {"X-Forwarded-For": "203.0.113.55"}
+    last = None
+    for _ in range(RATE_LIMIT_MAX_REQUESTS + 5):
+        last = await client.get("/aircraft?limit=1", headers=headers)
+        if last.status_code == 429:
+            break
+    assert last.status_code == 429
+    assert last.headers.get("Retry-After") is not None
+    assert last.headers.get("X-RateLimit-Remaining") == "0"
+
+
+@pytest.mark.asyncio
+async def test_health_exempt_from_rate_limit(client):
+    """/health must stay reachable even from an IP that just got rate-limited,
+    so Render's own health checks can't be starved by demo traffic."""
+    headers = {"X-Forwarded-For": "203.0.113.55"}
+    resp = await client.get("/health", headers=headers)
+    assert resp.status_code == 200

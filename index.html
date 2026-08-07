@@ -322,8 +322,8 @@ const DATA = {
     {
       title:"Aircraft Maintenance API",
       status:"live",
-      blurb:"An async REST API that turns the maintenance database above into a real running service — FastAPI + SQLAlchemy 2.0 (async) + asyncpg. Pydantic validation mirrors the database's own CHECK constraints, report endpoints query the SQL views directly instead of re-deriving their logic, and Docker Compose spins up Postgres + the API in one command. 12 idempotent integration tests, run twice back-to-back to prove it.",
-      tags:["FastAPI","SQLAlchemy","asyncpg","Pydantic","Docker","pytest"],
+      blurb:"An async REST API that turns the maintenance database above into a real running service — FastAPI + SQLAlchemy 2.0 (async) + asyncpg. Pydantic validation mirrors the database's own CHECK constraints, report endpoints query the SQL views directly instead of re-deriving their logic, and Docker Compose spins up Postgres + the API in one command. Writes are protected by JWT bearer tokens with bcrypt-hashed credentials while reads stay open, and a rate limiter returns 429 with the standard X-RateLimit headers. 18 idempotent integration tests, run twice back-to-back to prove it.",
+      tags:["FastAPI","SQLAlchemy","asyncpg","Pydantic","JWT","Docker","pytest"],
       links:[{label:"Code + docs", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/aircraft-maintenance-api"}]
     },
     {
@@ -362,7 +362,7 @@ const DATA = {
     {name:"Operating Systems Configuration", code:"CR/02/6", status:"done"},
     {name:"Networking & Distributed Systems", code:"CR/03/6", status:"done"},
     {name:"Database Management", code:"CR/05/6", status:"done"},
-    {name:"Web Designing", code:"CR/06/6", status:"doing"},
+    {name:"Web Designing", code:"CR/06/6", status:"done"},
     {name:"Graphics Design", code:"CR/04/6", status:"todo"},
     {name:"Fundamentals of Programming", code:"CC/02/6", status:"todo"},
     {name:"Algorithms & Data Structures", code:"CR/07/6", status:"todo"},
@@ -371,7 +371,7 @@ const DATA = {
 
   // Add certificates here as you earn them — newest first reads best.
   certifications:[
-    // {year:"2026", name:"Introduction to Cybersecurity", org:"Cisco Networking Academy"},
+    {year:"2026", name:"Introduction to Cybersecurity", org:"Cisco Networking Academy"},
     // {year:"2026", name:"Python (Basic) Certificate", org:"HackerRank"},
   ],
 

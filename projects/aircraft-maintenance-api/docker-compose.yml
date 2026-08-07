@@ -21,11 +21,24 @@ services:
       retries: 10
 
   api:
-    build: .
+    # Context is the parent projects/ directory so the image can include the
+    # sibling database project's schema.sql — see the note in the Dockerfile.
+    build:
+      context: ..
+      dockerfile: aircraft-maintenance-api/Dockerfile
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/maintenance_log
+      # Auth, rate limiting, and RUN_DB_BOOTSTRAP all have safe defaults baked
+      # into main.py (see docs/aircraft-maintenance-api/README.md) — nothing
+      # else to set for local use. Override any of them here if you want to,
+      # e.g.:
+      # JWT_SECRET_KEY: some-local-value
+      # DEMO_USERNAME: recruiter
+      # DEMO_PASSWORD: aircraft-demo
+      # RATE_LIMIT_MAX_REQUESTS: "60"
+      # RATE_LIMIT_WINDOW_SECONDS: "60"
     depends_on:
       db:
         condition: service_healthy
