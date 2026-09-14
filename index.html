@@ -324,7 +324,7 @@ const DATA = {
       status:"live",
       blurb:"An async REST API that turns the maintenance database above into a real running service — FastAPI + SQLAlchemy 2.0 (async) + asyncpg. Pydantic validation mirrors the database's own CHECK constraints, report endpoints query the SQL views directly instead of re-deriving their logic, and Docker Compose spins up Postgres + the API in one command. Writes are protected by JWT bearer tokens with bcrypt-hashed credentials while reads stay open, and a rate limiter returns 429 with the standard X-RateLimit headers. 18 idempotent integration tests, run twice back-to-back to prove it.",
       tags:["FastAPI","SQLAlchemy","asyncpg","Pydantic","JWT","Docker","pytest"],
-      links:[{label:"Code + docs", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/aircraft-maintenance-api"}]
+      links:[{label:"Live demo (Swagger)", url:"https://aircraft-maintenance-api.onrender.com/docs"},{label:"Code + docs", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/aircraft-maintenance-api"}]
     },
     {
       title:"Flight-Telemetry Dashboard",

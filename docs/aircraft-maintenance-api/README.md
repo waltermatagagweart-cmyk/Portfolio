@@ -4,6 +4,8 @@ An async REST API serving the [Aircraft Maintenance Database](../aircraft-mainte
 
 **Stack:** FastAPI · SQLAlchemy 2.0 (async) · asyncpg · Pydantic v2 · PostgreSQL · pytest + httpx · Docker
 
+**Live demo:** https://aircraft-maintenance-api.onrender.com/docs (Swagger UI — free tier, first request after inactivity takes ~50s to wake up)
+
 ---
 
 ## Why this project
