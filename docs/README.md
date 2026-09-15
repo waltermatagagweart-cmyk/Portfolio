@@ -34,6 +34,12 @@ Real-time two-body Keplerian orbit propagator with a live ground-track map — I
 - **Live demo:** [satellite-ground-track](https://waltermatagagweart-cmyk.github.io/Portfolio/projects/satellite-ground-track/)
 - **Code:** [Self-contained HTML + CSS + JS](../projects/satellite-ground-track/)
 
+### Weight & Balance / CG Calculator
+Self-contained HTML/JS tool computing aircraft CG from loaded stations and checking it against a certified envelope — status banner, envelope chart, and a baggage placard-limit check, with a real Node-run test suite for the core math.
+- **[README](weight-balance-calculator/README.md)** — Method, assumptions, verification table, test suite
+- **Live demo:** [weight-balance-calculator](https://waltermatagagweart-cmyk.github.io/Portfolio/projects/weight-balance-calculator/)
+- **Code:** [Self-contained HTML + CSS + JS](../projects/weight-balance-calculator/)
+
 ### Rocket Ascent Simulator
 Python numerical-methods project. Physics-based simulation of vertical rocket ascent with variable mass, altitude-dependent gravity, and atmospheric drag.
 - **[README](rocket-ascent-sim/README.md)** — Physics model, integration method, test suite, sample ascent profile

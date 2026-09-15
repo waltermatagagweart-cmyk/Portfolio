@@ -348,6 +348,13 @@ const DATA = {
       links:[{label:"Live demo", url:"https://waltermatagagweart-cmyk.github.io/Portfolio/projects/satellite-ground-track/"},{label:"Code", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/satellite-ground-track"}]
     },
     {
+      title:"Weight & Balance / CG Calculator",
+      status:"live",
+      blurb:"A self-contained HTML/JS tool that computes an aircraft's center of gravity from its loaded stations (moment = weight x arm, CG = total moment / total weight) and checks it against a certified envelope, flagging forward, aft, or over-max-gross-weight violations plus a separate baggage placard-limit check. The core math is split into a pure module with a real Node test suite (14 assertions) rather than a scratch script, and the envelope chart is a live SVG plot of the current loading against the shaded certified region.",
+      tags:["JavaScript","Aviation Ops","Data Viz","Testing","HTML","CSS"],
+      links:[{label:"Live demo", url:"https://waltermatagagweart-cmyk.github.io/Portfolio/projects/weight-balance-calculator/"},{label:"Code", url:"https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/weight-balance-calculator"}]
+    },
+    {
       title:"Rocket Ascent Simulator",
       status:"live",
       blurb:"A physics-based rocket-launch simulator in Python. Integrates the equations of motion with variable mass, altitude-dependent gravity and an exponential-atmosphere drag model (SciPy RK45), computes the Tsiolkovsky delta-v and the real gravity/drag losses, and plots the full ascent profile from lift-off to apogee. Ships with 11 passing tests.",

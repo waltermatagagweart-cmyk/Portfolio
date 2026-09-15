@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weight & Balance / CG Calculator — Walter Matagagwe</title>
+<meta name="description" content="Aircraft weight & balance calculator — computes CG from station weights/arms and checks it against a certified envelope." />
+
+<style>
+:root{
+  --bg:#F3F5F7; --surface:#FFFFFF; --surface-2:#E9EDF1;
+  --text:#171B22; --text-2:#56606E; --border:#D8DEE6;
+  --accent:#12707E; --accent-2:#0C4E58;
+  --ok:#1B7A3D; --ok-bg:#E4F5EA; --bad:#B3261E; --bad-bg:#FBE7E5; --warn:#8A5A00; --warn-bg:#FCEFD2;
+  --env-fill:rgba(18,112,126,.12); --env-line:#12707E; --cg-dot:#B3261E;
+  --shadow:0 1px 2px rgba(20,27,34,.06),0 8px 24px rgba(20,27,34,.06);
+  --font-display:'Sora',ui-sans-serif,system-ui,sans-serif;
+  --font-body:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SFMono-Regular','Cascadia Code',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0F131A; --surface:#161B24; --surface-2:#1E2531;
+    --text:#EAEEF3; --text-2:#9AA6B4; --border:#262E3B;
+    --accent:#37B0C0; --accent-2:#7FD4DF;
+    --ok:#4ADE80; --ok-bg:#132A1D; --bad:#F87171; --bad-bg:#2E1616; --warn:#F5C451; --warn-bg:#2E2510;
+    --env-fill:rgba(55,176,192,.14); --env-line:#37B0C0; --cg-dot:#F87171;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#F3F5F7; --surface:#FFFFFF; --surface-2:#E9EDF1;
+  --text:#171B22; --text-2:#56606E; --border:#D8DEE6;
+  --accent:#12707E; --accent-2:#0C4E58;
+  --ok:#1B7A3D; --ok-bg:#E4F5EA; --bad:#B3261E; --bad-bg:#FBE7E5; --warn:#8A5A00; --warn-bg:#FCEFD2;
+  --env-fill:rgba(18,112,126,.12); --env-line:#12707E; --cg-dot:#B3261E;
+}
+:root[data-theme="dark"]{
+  --bg:#0F131A; --surface:#161B24; --surface-2:#1E2531;
+  --text:#EAEEF3; --text-2:#9AA6B4; --border:#262E3B;
+  --accent:#37B0C0; --accent-2:#7FD4DF;
+  --ok:#4ADE80; --ok-bg:#132A1D; --bad:#F87171; --bad-bg:#2E1616; --warn:#F5C451; --warn-bg:#2E2510;
+  --env-fill:rgba(55,176,192,.14); --env-line:#37B0C0; --cg-dot:#F87171;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+a{color:var(--accent)}
+.mono{font-family:var(--font-mono)}
+
+header{padding:22px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.title{font-family:var(--font-display);font-weight:700;font-size:1.3rem;letter-spacing:-.01em}
+.title span{color:var(--accent)}
+.subtitle{color:var(--text-2);font-size:.85rem;margin-top:2px}
+.theme-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);
+  width:36px;height:36px;border-radius:9px;cursor:pointer;display:grid;place-items:center;font-size:1rem}
+.back-link{font-size:.85rem;color:var(--text-2);font-weight:500}
+
+main{padding:24px 0 60px}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px;background:var(--surface);
+  border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.controls select, .controls button{
+  font-family:var(--font-body);font-size:.86rem;padding:8px 14px;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;font-weight:500}
+.controls button:hover, .controls select:hover{border-color:var(--accent)}
+.controls .hint{font-size:.8rem;color:var(--text-2)}
+.controls .spacer{flex:1}
+
+.grid{display:grid;grid-template-columns:1.15fr 1fr;gap:18px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
+.panel h2{font-family:var(--font-display);font-size:.95rem;font-weight:600;margin-bottom:12px;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--text-2)}
+
+table.stations{width:100%;border-collapse:collapse;font-size:.88rem}
+table.stations th{text-align:left;color:var(--text-2);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;
+  padding:0 8px 8px;border-bottom:1px solid var(--border)}
+table.stations td{padding:7px 8px;border-bottom:1px dashed var(--border);vertical-align:middle}
+table.stations tr:last-child td{border-bottom:0}
+table.stations input[type="number"]{width:100%;min-width:0;padding:6px 8px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text);font-family:var(--font-mono);font-size:.86rem}
+table.stations .station-name{font-weight:600}
+table.stations .station-note{display:block;font-size:.72rem;color:var(--text-2);font-weight:400}
+table.stations td.moment{font-family:var(--font-mono);text-align:right;color:var(--text-2)}
+table.stations tfoot td{font-weight:700;padding-top:10px;border-top:2px solid var(--border);border-bottom:0}
+table.stations tfoot td.moment{color:var(--text)}
+
+.readouts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+@media(max-width:520px){.readouts{grid-template-columns:1fr 1fr}}
+.readout{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px}
+.readout .label{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-2);margin-bottom:3px}
+.readout .value{font-family:var(--font-mono);font-size:1.1rem;font-weight:600}
+.readout .value small{font-size:.65rem;color:var(--text-2);font-weight:400}
+
+.status-banner{border-radius:10px;padding:12px 14px;font-size:.88rem;font-weight:600;margin-top:14px;display:flex;gap:10px;align-items:flex-start}
+.status-banner .msg{font-weight:500;color:inherit}
+.status-banner.ok{background:var(--ok-bg);color:var(--ok)}
+.status-banner.bad{background:var(--bad-bg);color:var(--bad)}
+.status-banner.warn{background:var(--warn-bg);color:var(--warn);margin-top:8px;font-size:.8rem;font-weight:500}
+
+#envSvg{width:100%;height:auto;display:block;border-radius:8px;background:var(--surface-2)}
+
+.note{font-size:.78rem;color:var(--text-2);margin-top:14px;padding-top:14px;border-top:1px solid var(--border);line-height:1.6}
+.note strong{color:var(--text)}
+.note ul{margin:6px 0 0 18px}
+
+footer{padding:24px 0;border-top:1px solid var(--border);text-align:center;color:var(--text-2);font-size:.82rem}
+footer a{font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="title">Weight & <span>Balance</span> Calculator</div>
+      <div class="subtitle">Center-of-gravity computation against a certified envelope</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <a class="back-link" href="../../index.html">← Portfolio</a>
+      <button class="theme-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="controls">
+      <span class="hint">Load a scenario:</span>
+      <button data-scenario="typical">Typical loading</button>
+      <button data-scenario="forward">Forward CG</button>
+      <button data-scenario="aft">Aft CG</button>
+      <button data-scenario="overweight">Over max gross weight</button>
+      <div class="spacer"></div>
+      <button id="resetBtn">⟲ Reset to typical</button>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="panel">
+          <h2>Loading stations</h2>
+          <table class="stations">
+            <thead>
+              <tr><th>Station</th><th>Weight (lb)</th><th>Arm (in)</th><th style="text-align:right">Moment (lb·in)</th></tr>
+            </thead>
+            <tbody id="stationRows"></tbody>
+            <tfoot>
+              <tr><td>Totals</td><td id="totalWeightCell" class="mono"></td><td></td><td id="totalMomentCell" class="moment"></td></tr>
+            </tfoot>
+          </table>
+
+          <div class="readouts">
+            <div class="readout"><div class="label">Total weight</div><div class="value" id="roWeight">—</div></div>
+            <div class="readout"><div class="label">CG arm</div><div class="value" id="roCg">—</div></div>
+            <div class="readout"><div class="label">Envelope at this weight</div><div class="value" id="roLimits">—</div></div>
+          </div>
+
+          <div class="status-banner" id="statusBanner"></div>
+          <div class="status-banner warn" id="baggageBanner" hidden></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <h2>CG envelope</h2>
+          <svg id="envSvg" viewBox="0 0 360 320"></svg>
+          <div class="note">Shaded region is the certified envelope for this example aircraft. The dot is the current loading's (CG, weight) point.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>About this tool</h2>
+      <div class="note">
+        <strong>Method:</strong> moment = weight × arm for each station; CG arm = (Σ moment) / (Σ weight) — the standard
+        procedure from the FAA's <em>Aircraft Weight and Balance Handbook</em> (FAA-H-8083-1). The envelope's forward and
+        aft limit lines are interpolated linearly between the certified chart's breakpoints, exactly how a paper
+        loading chart is read.
+        <ul>
+          <li><strong>The station arms, weights, and envelope shown are an illustrative example</strong> loosely modeled
+            on a typical 4-seat single-engine trainer — not an exact reproduction of any specific type's certified POH.
+            Real dispatch must use the actual aircraft's own TCDS/POH weight-and-balance data.</li>
+          <li>Fuel is entered as total weight (≈6 lb/US gal for avgas — Jet A is closer to 6.7–6.8 lb/gal; use the
+            correct value for your fuel type).</li>
+          <li>The envelope model is piecewise-linear between chart breakpoints. A real POH envelope can have curved or
+            stepped boundaries this simplification would miss between the given points.</li>
+          <li>Being "in limits" at rest doesn't account for CG shift as fuel burns off in flight — a full flight-planning
+            tool would re-check the envelope at the estimated landing weight too.</li>
+        </ul>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Part of the <a href="../../index.html">aerospace portfolio</a> ·
+    <a href="https://github.com/waltermatagagweart-cmyk/Portfolio/tree/main/projects/weight-balance-calculator">View code</a>
+  </footer>
+</div>
+
+<script src="wb-core.js"></script>
+<script>
+// ---- Example aircraft profile (illustrative — see the About panel) ----
+const ENVELOPE = {
+  maxWeight: 2300,
+  forward: [
+    { weight: 1500, arm: 82.0 },
+    { weight: 1900, arm: 83.0 },
+    { weight: 2300, arm: 84.5 },
+  ],
+  aft: [
+    { weight: 1500, arm: 88.0 },
+    { weight: 1900, arm: 89.5 },
+    { weight: 2300, arm: 90.0 },
+  ],
+};
+const BAGGAGE_PLACARD_MAX = 120; // lb, structural limit independent of CG
+
+const STATION_DEFS = [
+  { key: "empty", name: "Basic empty weight", note: "airframe + unusable fuel + oil", arm: 85.0, editableArm: false },
+  { key: "front", name: "Front seats", note: "pilot + front passenger", arm: 70.0, editableArm: false },
+  { key: "rear", name: "Rear seats", note: "up to 2 occupants", arm: 118.0, editableArm: false },
+  { key: "baggage", name: "Baggage", note: "placard max " + BAGGAGE_PLACARD_MAX + " lb", arm: 140.0, editableArm: false },
+  { key: "fuel", name: "Fuel", note: "≈6 lb/gal avgas, 40 gal usable", arm: 95.0, editableArm: false },
+];
+
+const SCENARIOS = {
+  typical: { empty: 1500, front: 340, rear: 170, baggage: 20, fuel: 150 },
+  forward: { empty: 1500, front: 340, rear: 0, baggage: 0, fuel: 0 },
+  aft: { empty: 1500, front: 170, rear: 340, baggage: 80, fuel: 60 },
+  overweight: { empty: 1500, front: 340, rear: 340, baggage: 120, fuel: 240 },
+};
+
+let weights = Object.assign({}, SCENARIOS.typical);
+
+function stationsFromWeights(w) {
+  return STATION_DEFS.map((d) => ({ weight: Number(w[d.key]) || 0, arm: d.arm }));
+}
+
+function buildRows() {
+  const tbody = document.getElementById("stationRows");
+  tbody.innerHTML = STATION_DEFS.map(
+    (d) => `
+    <tr data-key="${d.key}">
+      <td><span class="station-name">${d.name}</span><span class="station-note">${d.note} · arm ${d.arm.toFixed(1)} in</span></td>
+      <td><input type="number" min="0" step="1" value="${weights[d.key]}" data-key="${d.key}" /></td>
+      <td class="mono">${d.arm.toFixed(1)}</td>
+      <td class="moment" data-moment="${d.key}">—</td>
+    </tr>`
+  ).join("");
+
+  tbody.querySelectorAll("input").forEach((inp) => {
+    inp.addEventListener("input", () => {
+      weights[inp.dataset.key] = Number(inp.value) || 0;
+      render();
+    });
+  });
+}
+
+function fmt(n, dp = 1) {
+  return Number(n).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+}
+
+function render() {
+  const stations = stationsFromWeights(weights);
+  const totals = WB.computeTotals(stations);
+  const result = WB.checkEnvelope(ENVELOPE, totals.totalWeight, totals.cg);
+
+  STATION_DEFS.forEach((d) => {
+    const w = Number(weights[d.key]) || 0;
+    const cell = document.querySelector('[data-moment="' + d.key + '"]');
+    if (cell) cell.textContent = fmt(w * d.arm, 0);
+  });
+  document.getElementById("totalWeightCell").textContent = fmt(totals.totalWeight, 0) + " lb";
+  document.getElementById("totalMomentCell").textContent = fmt(totals.totalMoment, 0);
+
+  document.getElementById("roWeight").innerHTML = fmt(totals.totalWeight, 0) + " <small>lb</small>";
+  document.getElementById("roCg").innerHTML = fmt(totals.cg, 2) + " <small>in</small>";
+  document.getElementById("roLimits").innerHTML =
+    result.forwardLimit != null
+      ? fmt(result.forwardLimit, 1) + "–" + fmt(result.aftLimit, 1) + " <small>in</small>"
+      : "<small>n/a</small>";
+
+  const banner = document.getElementById("statusBanner");
+  banner.className = "status-banner " + (result.status === "in-limits" ? "ok" : "bad");
+  const icon = result.status === "in-limits" ? "✓" : "✕";
+  banner.innerHTML = "<span>" + icon + "</span><span class=\"msg\">" + result.message + "</span>";
+
+  const bagBanner = document.getElementById("baggageBanner");
+  if ((Number(weights.baggage) || 0) > BAGGAGE_PLACARD_MAX) {
+    bagBanner.hidden = false;
+    bagBanner.textContent = "Baggage (" + fmt(weights.baggage, 0) + " lb) exceeds the placarded structural limit of " + BAGGAGE_PLACARD_MAX + " lb — independent of CG.";
+  } else {
+    bagBanner.hidden = true;
+  }
+
+  drawEnvelope(totals, result);
+}
+
+function drawEnvelope(totals, result) {
+  const svg = document.getElementById("envSvg");
+  const W = 360, H = 320, pad = 36;
+  const armMin = 78, armMax = 93;
+  const wMin = 1400, wMax = 2400;
+
+  const x = (arm) => pad + ((arm - armMin) / (armMax - armMin)) * (W - 2 * pad);
+  const y = (w) => H - pad - ((w - wMin) / (wMax - wMin)) * (H - 2 * pad);
+
+  const fwdPts = ENVELOPE.forward.map((p) => [x(p.arm), y(p.weight)]);
+  const aftPts = ENVELOPE.aft.map((p) => [x(p.arm), y(p.weight)]).reverse();
+  const capTop = `${x(ENVELOPE.forward[ENVELOPE.forward.length - 1].arm)},${y(ENVELOPE.forward[ENVELOPE.forward.length - 1].weight)} ${x(ENVELOPE.aft[ENVELOPE.aft.length - 1].arm)},${y(ENVELOPE.aft[ENVELOPE.aft.length - 1].weight)}`;
+  const polyPts = fwdPts.map((p) => p.join(",")).join(" ") + " " + aftPts.map((p) => p.join(",")).join(" ");
+
+  const cgX = x(totals.cg);
+  const cgY = y(Math.min(Math.max(totals.totalWeight, wMin), wMax));
+  const dotColor = result.status === "in-limits" ? "var(--ok)" : "var(--bad)";
+
+  let gridLines = "";
+  for (let w = 1400; w <= 2400; w += 200) {
+    gridLines += `<line x1="${pad}" y1="${y(w)}" x2="${W - pad}" y2="${y(w)}" stroke="var(--border)" stroke-width="1"/>`;
+    gridLines += `<text x="${pad - 6}" y="${y(w) + 3}" text-anchor="end" font-size="8" fill="var(--text-2)">${w}</text>`;
+  }
+  for (let a = 78; a <= 93; a += 3) {
+    gridLines += `<line x1="${x(a)}" y1="${pad}" x2="${x(a)}" y2="${H - pad}" stroke="var(--border)" stroke-width="1"/>`;
+    gridLines += `<text x="${x(a)}" y="${H - pad + 14}" text-anchor="middle" font-size="8" fill="var(--text-2)">${a}</text>`;
+  }
+
+  svg.innerHTML = `
+    ${gridLines}
+    <polygon points="${polyPts}" fill="var(--env-fill)" stroke="var(--env-line)" stroke-width="1.5"/>
+    <circle cx="${cgX}" cy="${cgY}" r="5" fill="${dotColor}" stroke="var(--surface)" stroke-width="1.5"/>
+    <text x="${W/2}" y="${H - 6}" text-anchor="middle" font-size="9" fill="var(--text-2)">CG arm (in)</text>
+    <text x="10" y="14" text-anchor="start" font-size="9" fill="var(--text-2)" transform="rotate(-90 10 160)">weight (lb)</text>
+  `;
+}
+
+document.querySelectorAll("[data-scenario]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    weights = Object.assign({}, SCENARIOS[btn.dataset.scenario]);
+    buildRows();
+    render();
+  });
+});
+document.getElementById("resetBtn").addEventListener("click", () => {
+  weights = Object.assign({}, SCENARIOS.typical);
+  buildRows();
+  render();
+});
+
+// ---- theme ----
+const themeBtn = document.getElementById("themeBtn");
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  themeBtn.textContent = t === "dark" ? "☀" : "◑";
+}
+const savedTheme = localStorage.getItem("wb-calc-theme");
+if (savedTheme) applyTheme(savedTheme);
+themeBtn.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") ||
+    (window.matchMedia("(prefers-color-scheme:dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  applyTheme(next);
+  localStorage.setItem("wb-calc-theme", next);
+});
+
+buildRows();
+render();
+</script>
+</body>
+</html>
